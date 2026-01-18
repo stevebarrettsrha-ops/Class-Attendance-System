@@ -4267,75 +4267,49 @@
 
         // Connect to Google Drive using OAuth
         async function connectToGoogleDrive() {
-            try {
-                // Initialize if not already done
-                if (!googleTokenClient) {
-                    initGoogleAuth();
-                }
-
-                if (googleTokenClient) {
-                    // Use Google Identity Services popup for authentication
-                    googleTokenClient.requestAccessToken();
-                } else {
-                    // Fallback to manual token entry if GIS isn't available
-                    showGoogleAuthModal();
-                }
-
-            } catch (error) {
-                console.error('Error initializing Google auth:', error);
-                // Fallback to manual method
-                showGoogleAuthModal();
-            }
+            // Always show the modal first - let user choose method
+            showGoogleAuthModal();
         }
 
-        // Show authentication modal (fallback method)
+        // Show authentication modal
         function showGoogleAuthModal() {
             const modalHTML = `
                 <div id="googleAuthModal" class="modal" style="display: flex;">
-                    <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-content" style="max-width: 520px;">
                         <div class="modal-header">
                             <h2>☁️ Connect to Google Drive</h2>
                             <button class="close-btn" onclick="closeGoogleAuthModal()">×</button>
                         </div>
                         <div style="padding: var(--space-6);">
                             <p style="margin-bottom: var(--space-4); color: var(--text-secondary);">
-                                To sync your attendance data to Google Drive, you need to authorize access.
+                                Connect to Google Drive to save and sync your attendance data across devices.
                             </p>
 
-                            <div style="background: var(--success-bg); border: 1px solid var(--success-border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-4);">
-                                <strong style="color: var(--success);">Quick Sign In:</strong>
-                                <p style="margin-top: var(--space-2); color: var(--text-secondary); font-size: 0.875rem;">
-                                    Click the button below to sign in with your Google account directly.
-                                </p>
-                                <button class="btn btn-success" onclick="retryGoogleSignIn()" style="margin-top: var(--space-3); width: 100%;">
-                                    🔐 Sign in with Google
-                                </button>
-                            </div>
-
-                            <div style="text-align: center; color: var(--text-tertiary); margin: var(--space-4) 0;">
-                                — OR use manual method —
-                            </div>
-
                             <div style="background: var(--info-bg); border: 1px solid var(--info-border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-4);">
-                                <strong style="color: var(--info);">Manual token entry:</strong>
-                                <ol style="margin-top: var(--space-2); margin-left: var(--space-4); color: var(--text-secondary); font-size: 0.875rem;">
-                                    <li>Go to <a href="https://developers.google.com/oauthplayground" target="_blank" style="color: var(--accent);">Google OAuth Playground</a></li>
-                                    <li>Select "Drive API v3" → "drive.file"</li>
-                                    <li>Click "Authorize APIs" and sign in</li>
-                                    <li>Click "Exchange authorization code for tokens"</li>
-                                    <li>Copy the "Access token" and paste below</li>
+                                <strong style="color: var(--info);">How to get your access token:</strong>
+                                <ol style="margin-top: var(--space-2); margin-left: var(--space-4); color: var(--text-secondary); font-size: 0.875rem; line-height: 1.6;">
+                                    <li>Click the link below to open Google OAuth Playground</li>
+                                    <li>In Step 1, find and select <strong>"Drive API v3"</strong> → check <strong>"drive.file"</strong></li>
+                                    <li>Click <strong>"Authorize APIs"</strong> (blue button)</li>
+                                    <li>Sign in with your Google account</li>
+                                    <li>In Step 2, click <strong>"Exchange authorization code for tokens"</strong></li>
+                                    <li>Copy the <strong>"Access token"</strong> value and paste below</li>
                                 </ol>
+                                <a href="https://developers.google.com/oauthplayground" target="_blank"
+                                   style="display: inline-block; margin-top: var(--space-3); padding: var(--space-2) var(--space-4); background: var(--accent); color: white; border-radius: var(--radius-md); text-decoration: none; font-weight: 600; font-size: 0.875rem;">
+                                    🔗 Open OAuth Playground
+                                </a>
                             </div>
 
-                            <div class="form-group">
-                                <label>Access Token</label>
-                                <textarea id="googleAccessTokenInput" rows="3" style="width: 100%; padding: var(--space-3); border: 2px solid var(--border-light); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.75rem; resize: vertical;" placeholder="Paste your Google access token here..."></textarea>
+                            <div class="form-group" style="margin-bottom: var(--space-4);">
+                                <label style="font-weight: 600;">Access Token</label>
+                                <textarea id="googleAccessTokenInput" rows="4" style="width: 100%; padding: var(--space-3); border: 2px solid var(--border-light); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.75rem; resize: vertical; margin-top: var(--space-2);" placeholder="Paste your access token here..."></textarea>
                             </div>
 
                             <div style="display: flex; gap: var(--space-4); justify-content: flex-end;">
                                 <button class="btn btn-secondary" onclick="closeGoogleAuthModal()">Cancel</button>
                                 <button class="btn btn-success" onclick="submitGoogleToken()">
-                                    ☁️ Connect with Token
+                                    ☁️ Connect
                                 </button>
                             </div>
                         </div>
