@@ -3229,6 +3229,7 @@
                 document.getElementById('classManagementTab').style.display = 'block';
                 document.getElementById('reportsTab').style.display = 'block';
                 document.getElementById('usersTab').style.display = 'block';
+                document.getElementById('users').style.display = 'block';
                 document.getElementById('historyActionsHeader').style.display = 'table-cell';
                 renderSkillsTable();
                 renderStudentsTable();
@@ -3236,13 +3237,21 @@
                 populateSkillDropdowns();
                 render2FAStatus();
             } else {
+                // Hide admin-only tabs
                 document.getElementById('skillsTab').style.display = 'none';
                 document.getElementById('classManagementTab').style.display = 'none';
                 document.getElementById('reportsTab').style.display = 'none';
                 document.getElementById('usersTab').style.display = 'none';
+                document.getElementById('users').style.display = 'none';
                 document.getElementById('historyActionsHeader').style.display = 'none';
                 document.getElementById('teacherQuickActions').style.display = 'block';
                 populateSkillDropdowns();
+
+                // Ensure teacher sees Mark Attendance module, not User Management
+                document.querySelectorAll('.module').forEach(module => module.classList.remove('active'));
+                document.getElementById('markAttendance').classList.add('active');
+                document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+                document.querySelector('.nav-tab[onclick*="markAttendance"]').classList.add('active');
             }
         }
 
