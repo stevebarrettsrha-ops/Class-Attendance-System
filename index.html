@@ -1125,6 +1125,38 @@
             text-align: center;
         }
 
+        .cloud-sharing-tips {
+            padding: var(--space-2) var(--space-3);
+            background: #fef3c7;
+            border-radius: var(--radius-md);
+            margin: var(--space-1) var(--space-2);
+        }
+
+        .cloud-sharing-tips-header {
+            font-size: 0.7rem;
+            color: #92400e;
+            font-weight: 600;
+        }
+
+        .cloud-sharing-tips ul {
+            font-size: 0.65rem;
+            color: #78350f;
+            margin: var(--space-1) 0 0 0;
+            padding-left: 14px;
+        }
+
+        body.dark-mode .cloud-sharing-tips {
+            background: rgba(251, 191, 36, 0.15);
+        }
+
+        body.dark-mode .cloud-sharing-tips-header {
+            color: #fbbf24;
+        }
+
+        body.dark-mode .cloud-sharing-tips ul {
+            color: #fcd34d;
+        }
+
         /* ============================================
            Stats Cards
            ============================================ */
@@ -2033,6 +2065,18 @@
                                         <div class="cloud-dropdown-divider"></div>
                                         <div class="last-sync-info" id="lastSyncInfo">
                                             Last sync: Never
+                                        </div>
+                                        <div class="last-sync-info" id="lastSavedByInfo" style="color: #6b7280; font-size: 0.7rem;">
+                                            Last saved by: --
+                                        </div>
+                                        <div class="cloud-dropdown-divider"></div>
+                                        <div class="cloud-sharing-tips">
+                                            <div class="cloud-sharing-tips-header">📢 Shared Cloud Tips</div>
+                                            <ul>
+                                                <li>Always sync before making changes</li>
+                                                <li>Coordinate saves with other users</li>
+                                                <li>Last save overwrites previous data</li>
+                                            </ul>
                                         </div>
                                         <div class="cloud-dropdown-divider"></div>
                                         <div class="cloud-dropdown-item danger" onclick="disconnectFromGoogleDrive()">
@@ -5368,6 +5412,8 @@
         let isCloudConnected = false;
         let lastSyncTime = null;
         let cloudFileId = null;
+        let lastSavedBy = null;
+        let cloudFileTimestamp = null;
 
         // Initialize cloud sync from localStorage
         function initializeCloudSync() {
@@ -5730,6 +5776,34 @@
             }
         }
 
+        // Check cloud file for changes before saving (multi-user conflict detection)
+        async function checkCloudForChanges() {
+            if (!cloudFileId || !googleAccessToken) return null;
+
+            try {
+                // Fetch the current cloud file to check who last saved and when
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (response.ok) {
+                    const backupData = await response.json();
+                    return {
+                        savedBy: backupData.savedBy || 'Unknown',
+                        timestamp: backupData.timestamp
+                    };
+                }
+            } catch (error) {
+                console.error('Error checking cloud for changes:', error);
+            }
+            return null;
+        }
+
         // Save data to Google Drive
         async function saveToCloud() {
             if (!isCloudConnected || !googleAccessToken) {
@@ -5740,6 +5814,34 @@
             const menu = document.getElementById('cloudDropdownMenu');
             menu.classList.remove('show');
 
+            // Check for changes by others before saving
+            const cloudInfo = await checkCloudForChanges();
+
+            let confirmMessage = '⚠️ MULTI-USER CLOUD SYNC\n\n';
+            confirmMessage += 'You are about to save to a shared cloud backup.\n\n';
+
+            if (cloudInfo && cloudInfo.savedBy) {
+                const cloudTime = new Date(cloudInfo.timestamp);
+                const timeSinceLastSave = getTimeAgo(cloudTime);
+
+                // Check if someone else saved since our last sync
+                const hasConflict = lastSyncTime && cloudTime > lastSyncTime;
+
+                if (hasConflict && cloudInfo.savedBy !== (currentUser ? currentUser.username : '')) {
+                    confirmMessage += `⚠️ WARNING: ${cloudInfo.savedBy} saved changes ${timeSinceLastSave}!\n`;
+                    confirmMessage += `Your local data may not include their changes.\n\n`;
+                    confirmMessage += `💡 Recommendation: Click Cancel, then "Sync from Cloud" first.\n\n`;
+                } else {
+                    confirmMessage += `Last saved by: ${cloudInfo.savedBy} (${timeSinceLastSave})\n\n`;
+                }
+            }
+
+            confirmMessage += 'This will overwrite the cloud backup. Continue?';
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
             setCloudSyncing(true);
 
             try {
@@ -5747,6 +5849,7 @@
                 const backupData = {
                     version: '1.0',
                     timestamp: new Date().toISOString(),
+                    savedBy: currentUser ? currentUser.username : 'Unknown',
                     data: {
                         users: users,
                         students: students,
@@ -5813,8 +5916,13 @@
                 localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
                 updateLastSyncDisplay();
 
+                // Update last saved by info
+                lastSavedBy = currentUser ? currentUser.username : 'Unknown';
+                cloudFileTimestamp = new Date().toISOString();
+                updateLastSavedByDisplay();
+
                 setCloudSyncing(false);
-                alert('✅ Data saved to Google Drive successfully!');
+                alert(`✅ Data saved to Google Drive successfully!\n\nSaved by: ${lastSavedBy}\n\n💡 Tip: Let other users know to sync from cloud to get your changes.`);
 
             } catch (error) {
                 console.error('Error saving to cloud:', error);
@@ -5914,8 +6022,14 @@
 
                 setCloudSyncing(false);
 
+                // Update last saved by info
+                lastSavedBy = backupData.savedBy || 'Unknown';
+                cloudFileTimestamp = backupData.timestamp;
+                updateLastSavedByDisplay();
+
                 const backupTime = new Date(backupData.timestamp).toLocaleString();
-                alert(`✅ Data synced from cloud successfully!\n\nBackup was created: ${backupTime}`);
+                const savedByInfo = backupData.savedBy ? `\nLast saved by: ${backupData.savedBy}` : '';
+                alert(`✅ Data synced from cloud successfully!\n\nBackup was created: ${backupTime}${savedByInfo}`);
 
             } catch (error) {
                 console.error('Error syncing from cloud:', error);
@@ -5938,6 +6052,21 @@
                 lastSyncInfo.textContent = `Last sync: ${timeAgo}`;
             } else {
                 lastSyncInfo.textContent = 'Last sync: Never';
+            }
+        }
+
+        // Update last saved by display
+        function updateLastSavedByDisplay() {
+            const lastSavedByInfo = document.getElementById('lastSavedByInfo');
+            if (lastSavedByInfo) {
+                if (lastSavedBy && cloudFileTimestamp) {
+                    const timeAgo = getTimeAgo(new Date(cloudFileTimestamp));
+                    lastSavedByInfo.textContent = `Last saved by: ${lastSavedBy} (${timeAgo})`;
+                } else if (lastSavedBy) {
+                    lastSavedByInfo.textContent = `Last saved by: ${lastSavedBy}`;
+                } else {
+                    lastSavedByInfo.textContent = 'Last saved by: --';
+                }
             }
         }
 
