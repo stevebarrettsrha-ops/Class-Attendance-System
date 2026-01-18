@@ -2484,6 +2484,12 @@
                             </select>
                         </div>
                     </div>
+                    <div class="form-group" style="margin-top: var(--space-3);">
+                        <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                            <input type="checkbox" id="newUserForcePasswordChange" style="width: auto;">
+                            <span>Require password change on first login</span>
+                        </label>
+                    </div>
                     <button class="btn btn-success" onclick="addUser()">➕ Add User</button>
                 </div>
 
@@ -2496,6 +2502,7 @@
                                 <th>Full Name</th>
                                 <th>Role</th>
                                 <th>2FA Status</th>
+                                <th>Pwd Change</th>
                                 <th>Created Date</th>
                                 <th>Actions</th>
                             </tr>
@@ -2765,6 +2772,82 @@
         </div>
     </div>
 
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Edit User</h2>
+                <button class="close-btn" onclick="closeEditUserModal()">✖</button>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" id="editUserFullName" placeholder="Full Name">
+                </div>
+                <div class="form-group">
+                    <label>Username *</label>
+                    <input type="text" id="editUserUsername" placeholder="Username">
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>New Password (leave blank to keep current)</label>
+                    <input type="password" id="editUserPassword" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label>Role *</label>
+                    <select id="editUserRole">
+                        <option value="Teacher">Teacher</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: var(--space-3);">
+                <label style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer;">
+                    <input type="checkbox" id="editUserForcePasswordChange" style="width: auto;">
+                    <span>Require password change on next login</span>
+                </label>
+            </div>
+
+            <div style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
+                <button class="btn btn-success" onclick="saveUserEdit()">💾 Save Changes</button>
+                <button class="btn btn-secondary" onclick="closeEditUserModal()">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Force Password Change Modal -->
+    <div id="forcePasswordChangeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔐 Password Change Required</h2>
+            </div>
+
+            <div class="alert alert-warning">
+                <strong>⚠️ Notice:</strong> You must change your password before continuing.
+            </div>
+
+            <div class="form-group">
+                <label>New Password *</label>
+                <input type="password" id="forceNewPassword" placeholder="Enter new password">
+            </div>
+
+            <div class="form-group">
+                <label>Confirm New Password *</label>
+                <input type="password" id="forceConfirmPassword" placeholder="Confirm new password">
+            </div>
+
+            <div id="forcePasswordError" class="alert alert-danger" style="display: none;"></div>
+
+            <div style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
+                <button class="btn btn-success" onclick="submitForcedPasswordChange()">🔒 Change Password</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Data Storage
         let currentUser = null;
@@ -2775,6 +2858,8 @@
         let editingAttendanceIndex = null;
         let editingSkillIndex = null;
         let editingStudentIndex = null;
+        let editingUserIndex = null;
+        let pendingPasswordChangeUser = null;
 
         // Initialize default data
         function initializeDefaultData() {
@@ -2912,6 +2997,23 @@
 
         // Complete login after credentials (and 2FA if enabled) are verified
         function completeLogin(user) {
+            // Check if user must change password
+            if (user.forcePasswordChange) {
+                pendingPasswordChangeUser = user;
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('forcePasswordChangeModal').classList.add('active');
+                document.getElementById('forceNewPassword').value = '';
+                document.getElementById('forceConfirmPassword').value = '';
+                document.getElementById('forcePasswordError').style.display = 'none';
+
+                // Reset login form state
+                pendingTwoFAUser = null;
+                document.getElementById('loginStep1').style.display = 'block';
+                document.getElementById('loginStep2FA').style.display = 'none';
+                document.getElementById('backupCodeSection').style.display = 'none';
+                return;
+            }
+
             currentUser = user;
             sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(user));
 
@@ -2929,6 +3031,67 @@
             document.getElementById('loginStep1').style.display = 'block';
             document.getElementById('loginStep2FA').style.display = 'none';
             document.getElementById('backupCodeSection').style.display = 'none';
+        }
+
+        // Handle forced password change
+        function submitForcedPasswordChange() {
+            const newPassword = document.getElementById('forceNewPassword').value;
+            const confirmPassword = document.getElementById('forceConfirmPassword').value;
+            const errorDiv = document.getElementById('forcePasswordError');
+
+            if (!newPassword || !confirmPassword) {
+                errorDiv.textContent = '❌ Please fill in both password fields';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                errorDiv.textContent = '❌ Password must be at least 6 characters';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = '❌ Passwords do not match';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (!pendingPasswordChangeUser) {
+                errorDiv.textContent = '❌ Session expired. Please login again.';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Update user password and remove force flag
+            const userIndex = users.findIndex(u => u.id === pendingPasswordChangeUser.id);
+            if (userIndex !== -1) {
+                users[userIndex].password = newPassword;
+                users[userIndex].forcePasswordChange = false;
+                saveUsers();
+
+                // Close modal and complete login
+                document.getElementById('forcePasswordChangeModal').classList.remove('active');
+                const updatedUser = users[userIndex];
+                pendingPasswordChangeUser = null;
+
+                // Now complete the login
+                currentUser = updatedUser;
+                sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(updatedUser));
+
+                document.getElementById('mainDashboard').style.display = 'block';
+                document.getElementById('currentUserDisplay').textContent = `👤 ${updatedUser.fullName} (${updatedUser.role})`;
+
+                updateUIForRole();
+                populateClassDropdowns();
+                renderTodayAttendance();
+                render2FAStatus();
+
+                alert('✅ Password changed successfully!');
+            } else {
+                errorDiv.textContent = '❌ User not found. Please login again.';
+                errorDiv.style.display = 'block';
+            }
         }
 
         // Verify 2FA code during login
@@ -4548,6 +4711,7 @@
             const username = document.getElementById('newUserUsername').value.trim();
             const password = document.getElementById('newUserPassword').value;
             const role = document.getElementById('newUserRole').value;
+            const forcePasswordChange = document.getElementById('newUserForcePasswordChange').checked;
 
             if (!name || !username || !password) {
                 alert('❌ Please fill in all required fields');
@@ -4565,6 +4729,7 @@
                 password: password,
                 fullName: name,
                 role: role,
+                forcePasswordChange: forcePasswordChange,
                 createdDate: new Date().toISOString()
             });
 
@@ -4574,6 +4739,7 @@
             document.getElementById('newUserName').value = '';
             document.getElementById('newUserUsername').value = '';
             document.getElementById('newUserPassword').value = '';
+            document.getElementById('newUserForcePasswordChange').checked = false;
 
             alert('✅ User added successfully!');
         }
@@ -4588,15 +4754,19 @@
                 const twoFAStatus = user.twoFactorEnabled ?
                     '<span class="twofa-status-badge enabled">Enabled</span>' :
                     '<span class="twofa-status-badge disabled">Disabled</span>';
+                const pwdChangeStatus = user.forcePasswordChange ?
+                    '<span class="badge badge-warning" style="font-size: 0.7rem;">Required</span>' : '';
 
                 row.innerHTML = `
                     <td>${user.username}</td>
                     <td>${user.fullName}</td>
                     <td><span class="badge ${roleBadge}">${user.role}</span></td>
                     <td>${twoFAStatus}</td>
+                    <td>${pwdChangeStatus}</td>
                     <td>${new Date(user.createdDate).toLocaleDateString()}</td>
                     <td>
-                        <button class="btn btn-danger" onclick="deleteUser(${index})" ${user.role === 'Admin' && users.filter(u => u.role === 'Admin').length === 1 ? 'disabled' : ''} style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">Delete</button>
+                        <button class="btn btn-primary" onclick="openEditUserModal(${index})" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-right: 0.5rem;">✏️ Edit</button>
+                        <button class="btn btn-danger" onclick="deleteUser(${index})" ${user.role === 'Admin' && users.filter(u => u.role === 'Admin').length === 1 ? 'disabled' : ''} style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">🗑️ Delete</button>
                     </td>
                 `;
             });
@@ -4612,6 +4782,82 @@
                 renderUsersTable();
                 alert('User deleted');
             }
+        }
+
+        function openEditUserModal(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Admin access required');
+                return;
+            }
+
+            editingUserIndex = index;
+            const user = users[index];
+
+            document.getElementById('editUserFullName').value = user.fullName;
+            document.getElementById('editUserUsername').value = user.username;
+            document.getElementById('editUserPassword').value = '';
+            document.getElementById('editUserRole').value = user.role;
+            document.getElementById('editUserForcePasswordChange').checked = user.forcePasswordChange || false;
+
+            document.getElementById('editUserModal').classList.add('active');
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('editUserModal').classList.remove('active');
+            editingUserIndex = null;
+        }
+
+        function saveUserEdit() {
+            if (editingUserIndex === null) return;
+
+            const fullName = document.getElementById('editUserFullName').value.trim();
+            const username = document.getElementById('editUserUsername').value.trim();
+            const password = document.getElementById('editUserPassword').value;
+            const role = document.getElementById('editUserRole').value;
+            const forcePasswordChange = document.getElementById('editUserForcePasswordChange').checked;
+
+            if (!fullName || !username) {
+                alert('❌ Please fill in all required fields');
+                return;
+            }
+
+            // Check if username already exists (excluding current user)
+            const existingUser = users.find((u, idx) => u.username === username && idx !== editingUserIndex);
+            if (existingUser) {
+                alert('❌ Username already exists');
+                return;
+            }
+
+            // Prevent removing the last admin
+            const user = users[editingUserIndex];
+            if (user.role === 'Admin' && role !== 'Admin' && users.filter(u => u.role === 'Admin').length === 1) {
+                alert('❌ Cannot change role: This is the only admin account');
+                return;
+            }
+
+            // Update user
+            users[editingUserIndex].fullName = fullName;
+            users[editingUserIndex].username = username;
+            users[editingUserIndex].role = role;
+            users[editingUserIndex].forcePasswordChange = forcePasswordChange;
+
+            // Only update password if provided
+            if (password) {
+                users[editingUserIndex].password = password;
+            }
+
+            saveUsers();
+            renderUsersTable();
+            closeEditUserModal();
+
+            // Update currentUser display if editing self
+            if (currentUser.id === users[editingUserIndex].id) {
+                currentUser = users[editingUserIndex];
+                sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(currentUser));
+                document.getElementById('currentUserDisplay').textContent = `👤 ${currentUser.fullName} (${currentUser.role})`;
+            }
+
+            alert('✅ User updated successfully!');
         }
 
         // ============================================
