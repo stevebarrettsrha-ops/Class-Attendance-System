@@ -8,6 +8,9 @@
     <!-- jsPDF for PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <!-- Google API for Drive Integration -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
     <style>
         /* ============================================
            CESTIS Student Attendance System
@@ -955,6 +958,171 @@
         }
 
         /* ============================================
+           Cloud Sync Styles
+           ============================================ */
+        .cloud-sync-container {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .cloud-sync-btn {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: var(--text-inverse);
+            border: none;
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            transition: all var(--transition-normal);
+            white-space: nowrap;
+        }
+
+        .cloud-sync-btn:hover {
+            box-shadow: var(--shadow-md), 0 4px 12px rgba(66, 133, 244, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .cloud-sync-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .cloud-sync-btn.save-btn {
+            background: linear-gradient(135deg, #34a853 0%, #0f9d58 100%);
+        }
+
+        .cloud-sync-btn.save-btn:hover {
+            box-shadow: var(--shadow-md), 0 4px 12px rgba(52, 168, 83, 0.3);
+        }
+
+        .cloud-sync-btn.sync-btn {
+            background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+        }
+
+        .cloud-sync-btn.sync-btn:hover {
+            box-shadow: var(--shadow-md), 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+
+        .cloud-sync-btn.connect-btn {
+            background: linear-gradient(135deg, #ea4335 0%, #fbbc05 50%, #34a853 75%, #4285f4 100%);
+        }
+
+        .cloud-status {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            padding: var(--space-1) var(--space-2);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+        }
+
+        .cloud-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gray-400);
+        }
+
+        .cloud-status-dot.connected {
+            background: var(--success);
+            animation: pulse-green 2s infinite;
+        }
+
+        .cloud-status-dot.syncing {
+            background: var(--warning);
+            animation: pulse-orange 1s infinite;
+        }
+
+        .cloud-status-dot.error {
+            background: var(--danger);
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); }
+            50% { box-shadow: 0 0 0 4px rgba(5, 150, 105, 0); }
+        }
+
+        @keyframes pulse-orange {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+            50% { box-shadow: 0 0 0 4px rgba(217, 119, 6, 0); }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .spinning {
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        .cloud-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .cloud-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: var(--space-2);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            min-width: 200px;
+            z-index: 1000;
+            padding: var(--space-2);
+        }
+
+        .cloud-dropdown-content.show {
+            display: block;
+        }
+
+        .cloud-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-3);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            transition: background var(--transition-fast);
+        }
+
+        .cloud-dropdown-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .cloud-dropdown-item.danger {
+            color: var(--danger);
+        }
+
+        .cloud-dropdown-divider {
+            height: 1px;
+            background: var(--border-light);
+            margin: var(--space-2) 0;
+        }
+
+        .last-sync-info {
+            padding: var(--space-2) var(--space-3);
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+            text-align: center;
+        }
+
+        /* ============================================
            Stats Cards
            ============================================ */
         .stats-grid {
@@ -1522,6 +1690,51 @@
 
                     <div style="display: flex; align-items: center; gap: var(--space-4);">
                         <span id="currentUserDisplay" style="font-weight: 600; color: var(--primary); font-size: 0.875rem;"></span>
+
+                        <!-- Cloud Sync Controls -->
+                        <div class="cloud-sync-container" id="cloudSyncContainer">
+                            <div class="cloud-status" id="cloudStatus">
+                                <span class="cloud-status-dot" id="cloudStatusDot"></span>
+                                <span id="cloudStatusText">Not connected</span>
+                            </div>
+
+                            <div id="cloudNotConnected">
+                                <button class="cloud-sync-btn connect-btn" onclick="connectToGoogleDrive()">
+                                    <span>☁️</span>
+                                    <span>Connect Drive</span>
+                                </button>
+                            </div>
+
+                            <div id="cloudConnected" style="display: none;">
+                                <div class="cloud-dropdown">
+                                    <button class="cloud-sync-btn" onclick="toggleCloudMenu()">
+                                        <span id="cloudMenuIcon">☁️</span>
+                                        <span>Cloud</span>
+                                        <span style="font-size: 0.6rem;">▼</span>
+                                    </button>
+                                    <div class="cloud-dropdown-content" id="cloudDropdownMenu">
+                                        <div class="cloud-dropdown-item" onclick="saveToCloud()">
+                                            <span>💾</span>
+                                            <span>Save to Cloud</span>
+                                        </div>
+                                        <div class="cloud-dropdown-item" onclick="syncFromCloud()">
+                                            <span>🔄</span>
+                                            <span>Sync from Cloud</span>
+                                        </div>
+                                        <div class="cloud-dropdown-divider"></div>
+                                        <div class="last-sync-info" id="lastSyncInfo">
+                                            Last sync: Never
+                                        </div>
+                                        <div class="cloud-dropdown-divider"></div>
+                                        <div class="cloud-dropdown-item danger" onclick="disconnectFromGoogleDrive()">
+                                            <span>🔌</span>
+                                            <span>Disconnect</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <button class="theme-toggle-btn" onclick="toggleDarkMode()">
                             <span id="themeIcon">🌙</span>
                             <span id="themeText">Dark</span>
@@ -3922,9 +4135,525 @@
             document.body.classList.toggle('dark-mode');
             const isDark = document.body.classList.contains('dark-mode');
             localStorage.setItem('cestisAttendanceDarkMode', isDark);
-            
+
             document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
             document.getElementById('themeText').textContent = isDark ? 'Light' : 'Dark';
+        }
+
+        // ============================================
+        // Google Drive Cloud Sync Integration
+        // ============================================
+
+        // Google Drive Configuration
+        const GOOGLE_DRIVE_CONFIG = {
+            // Your Google Drive folder ID from the shared link
+            FOLDER_ID: '11vWe_Nc40TtJ1Hi7PoE7EZ3JrpR-K0Vj',
+            // File name for backup
+            BACKUP_FILE_NAME: 'cestis_attendance_backup.json',
+            // API scopes needed
+            SCOPES: 'https://www.googleapis.com/auth/drive.file'
+        };
+
+        // Cloud sync state
+        let googleAccessToken = null;
+        let isCloudConnected = false;
+        let lastSyncTime = null;
+        let cloudFileId = null;
+
+        // Initialize cloud sync from localStorage
+        function initializeCloudSync() {
+            const savedToken = localStorage.getItem('cestisGoogleAccessToken');
+            const savedExpiry = localStorage.getItem('cestisGoogleTokenExpiry');
+            const savedLastSync = localStorage.getItem('cestisLastSyncTime');
+            const savedFileId = localStorage.getItem('cestisCloudFileId');
+
+            if (savedLastSync) {
+                lastSyncTime = new Date(savedLastSync);
+                updateLastSyncDisplay();
+            }
+
+            if (savedFileId) {
+                cloudFileId = savedFileId;
+            }
+
+            // Check if token is still valid
+            if (savedToken && savedExpiry) {
+                const expiry = new Date(savedExpiry);
+                if (expiry > new Date()) {
+                    googleAccessToken = savedToken;
+                    isCloudConnected = true;
+                    updateCloudUI(true);
+                    return;
+                }
+            }
+
+            updateCloudUI(false);
+        }
+
+        // Update cloud UI based on connection status
+        function updateCloudUI(connected) {
+            const notConnectedDiv = document.getElementById('cloudNotConnected');
+            const connectedDiv = document.getElementById('cloudConnected');
+            const statusDot = document.getElementById('cloudStatusDot');
+            const statusText = document.getElementById('cloudStatusText');
+
+            if (connected) {
+                notConnectedDiv.style.display = 'none';
+                connectedDiv.style.display = 'block';
+                statusDot.className = 'cloud-status-dot connected';
+                statusText.textContent = 'Connected';
+            } else {
+                notConnectedDiv.style.display = 'block';
+                connectedDiv.style.display = 'none';
+                statusDot.className = 'cloud-status-dot';
+                statusText.textContent = 'Not connected';
+            }
+        }
+
+        // Update syncing status
+        function setCloudSyncing(syncing) {
+            const statusDot = document.getElementById('cloudStatusDot');
+            const statusText = document.getElementById('cloudStatusText');
+            const menuIcon = document.getElementById('cloudMenuIcon');
+
+            if (syncing) {
+                statusDot.className = 'cloud-status-dot syncing';
+                statusText.textContent = 'Syncing...';
+                menuIcon.innerHTML = '<span class="spinning">🔄</span>';
+            } else {
+                statusDot.className = 'cloud-status-dot connected';
+                statusText.textContent = 'Connected';
+                menuIcon.textContent = '☁️';
+            }
+        }
+
+        // Toggle cloud dropdown menu
+        function toggleCloudMenu() {
+            const menu = document.getElementById('cloudDropdownMenu');
+            menu.classList.toggle('show');
+
+            // Close when clicking outside
+            setTimeout(() => {
+                document.addEventListener('click', closeCloudMenuOnClickOutside);
+            }, 0);
+        }
+
+        function closeCloudMenuOnClickOutside(e) {
+            const menu = document.getElementById('cloudDropdownMenu');
+            const dropdown = document.querySelector('.cloud-dropdown');
+
+            if (!dropdown.contains(e.target)) {
+                menu.classList.remove('show');
+                document.removeEventListener('click', closeCloudMenuOnClickOutside);
+            }
+        }
+
+        // Connect to Google Drive using OAuth
+        async function connectToGoogleDrive() {
+            try {
+                // Use Google Identity Services for token-based auth
+                const client = google.accounts.oauth2.initTokenClient({
+                    client_id: '', // Will be provided by user or use picker API
+                    scope: GOOGLE_DRIVE_CONFIG.SCOPES,
+                    callback: handleGoogleAuthCallback,
+                    error_callback: handleGoogleAuthError
+                });
+
+                // If no client ID is configured, use a simpler approach with Google Picker
+                // For now, we'll use a manual token entry or simplified flow
+                showGoogleAuthModal();
+
+            } catch (error) {
+                console.error('Error initializing Google auth:', error);
+                alert('Failed to initialize Google authentication. Please try again.');
+            }
+        }
+
+        // Show authentication modal
+        function showGoogleAuthModal() {
+            const modalHTML = `
+                <div id="googleAuthModal" class="modal" style="display: flex;">
+                    <div class="modal-content" style="max-width: 500px;">
+                        <div class="modal-header">
+                            <h2>☁️ Connect to Google Drive</h2>
+                            <button class="close-btn" onclick="closeGoogleAuthModal()">×</button>
+                        </div>
+                        <div style="padding: var(--space-6);">
+                            <p style="margin-bottom: var(--space-4); color: var(--text-secondary);">
+                                To sync your attendance data to Google Drive, you need to authorize access.
+                            </p>
+
+                            <div style="background: var(--info-bg); border: 1px solid var(--info-border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-4);">
+                                <strong style="color: var(--info);">How to get your access token:</strong>
+                                <ol style="margin-top: var(--space-2); margin-left: var(--space-4); color: var(--text-secondary); font-size: 0.875rem;">
+                                    <li>Go to <a href="https://developers.google.com/oauthplayground" target="_blank" style="color: var(--accent);">Google OAuth Playground</a></li>
+                                    <li>Select "Drive API v3" → "drive.file"</li>
+                                    <li>Click "Authorize APIs" and sign in</li>
+                                    <li>Click "Exchange authorization code for tokens"</li>
+                                    <li>Copy the "Access token" and paste below</li>
+                                </ol>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Access Token</label>
+                                <textarea id="googleAccessTokenInput" rows="3" style="width: 100%; padding: var(--space-3); border: 2px solid var(--border-light); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.75rem; resize: vertical;" placeholder="Paste your Google access token here..."></textarea>
+                            </div>
+
+                            <div style="background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-4); font-size: 0.8rem;">
+                                <strong style="color: var(--warning);">Note:</strong> Your data will be saved to folder:
+                                <code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">CESTIS Attendance Backup</code>
+                            </div>
+
+                            <div style="display: flex; gap: var(--space-4); justify-content: flex-end;">
+                                <button class="btn btn-secondary" onclick="closeGoogleAuthModal()">Cancel</button>
+                                <button class="btn btn-success" onclick="submitGoogleToken()">
+                                    ☁️ Connect
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        function closeGoogleAuthModal() {
+            const modal = document.getElementById('googleAuthModal');
+            if (modal) modal.remove();
+        }
+
+        async function submitGoogleToken() {
+            const tokenInput = document.getElementById('googleAccessTokenInput');
+            const token = tokenInput.value.trim();
+
+            if (!token) {
+                alert('Please enter an access token');
+                return;
+            }
+
+            // Verify the token works by making a test API call
+            try {
+                const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid token');
+                }
+
+                const data = await response.json();
+
+                // Token is valid, save it
+                googleAccessToken = token;
+                isCloudConnected = true;
+
+                // Save token with 1 hour expiry (typical for OAuth tokens)
+                const expiry = new Date();
+                expiry.setHours(expiry.getHours() + 1);
+                localStorage.setItem('cestisGoogleAccessToken', token);
+                localStorage.setItem('cestisGoogleTokenExpiry', expiry.toISOString());
+
+                closeGoogleAuthModal();
+                updateCloudUI(true);
+
+                alert(`✅ Connected to Google Drive as ${data.user.displayName || data.user.emailAddress}`);
+
+                // Try to find existing backup file
+                await findExistingBackupFile();
+
+            } catch (error) {
+                console.error('Token verification failed:', error);
+                alert('❌ Invalid access token. Please make sure you copied the correct token.');
+            }
+        }
+
+        function handleGoogleAuthCallback(tokenResponse) {
+            googleAccessToken = tokenResponse.access_token;
+            isCloudConnected = true;
+
+            const expiry = new Date();
+            expiry.setSeconds(expiry.getSeconds() + tokenResponse.expires_in);
+            localStorage.setItem('cestisGoogleAccessToken', googleAccessToken);
+            localStorage.setItem('cestisGoogleTokenExpiry', expiry.toISOString());
+
+            updateCloudUI(true);
+        }
+
+        function handleGoogleAuthError(error) {
+            console.error('Google auth error:', error);
+            alert('Failed to authenticate with Google. Please try again.');
+        }
+
+        // Disconnect from Google Drive
+        function disconnectFromGoogleDrive() {
+            if (confirm('Are you sure you want to disconnect from Google Drive? Your local data will remain intact.')) {
+                googleAccessToken = null;
+                isCloudConnected = false;
+                cloudFileId = null;
+
+                localStorage.removeItem('cestisGoogleAccessToken');
+                localStorage.removeItem('cestisGoogleTokenExpiry');
+                localStorage.removeItem('cestisCloudFileId');
+
+                updateCloudUI(false);
+                toggleCloudMenu();
+
+                alert('✅ Disconnected from Google Drive');
+            }
+        }
+
+        // Find existing backup file in the folder
+        async function findExistingBackupFile() {
+            try {
+                const query = `name='${GOOGLE_DRIVE_CONFIG.BACKUP_FILE_NAME}' and '${GOOGLE_DRIVE_CONFIG.FOLDER_ID}' in parents and trashed=false`;
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,modifiedTime)`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.files && data.files.length > 0) {
+                        cloudFileId = data.files[0].id;
+                        localStorage.setItem('cestisCloudFileId', cloudFileId);
+                        console.log('Found existing backup file:', cloudFileId);
+                    }
+                }
+            } catch (error) {
+                console.error('Error finding backup file:', error);
+            }
+        }
+
+        // Save data to Google Drive
+        async function saveToCloud() {
+            if (!isCloudConnected || !googleAccessToken) {
+                alert('Please connect to Google Drive first');
+                return;
+            }
+
+            const menu = document.getElementById('cloudDropdownMenu');
+            menu.classList.remove('show');
+
+            setCloudSyncing(true);
+
+            try {
+                // Prepare data for backup
+                const backupData = {
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    data: {
+                        users: users,
+                        students: students,
+                        attendanceRecords: attendanceRecords,
+                        skills: skills
+                    }
+                };
+
+                const jsonContent = JSON.stringify(backupData, null, 2);
+                const blob = new Blob([jsonContent], { type: 'application/json' });
+
+                let response;
+
+                if (cloudFileId) {
+                    // Update existing file
+                    response = await fetch(
+                        `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`,
+                        {
+                            method: 'PATCH',
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: blob
+                        }
+                    );
+                } else {
+                    // Create new file with metadata
+                    const metadata = {
+                        name: GOOGLE_DRIVE_CONFIG.BACKUP_FILE_NAME,
+                        parents: [GOOGLE_DRIVE_CONFIG.FOLDER_ID],
+                        mimeType: 'application/json'
+                    };
+
+                    const formData = new FormData();
+                    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                    formData.append('file', blob);
+
+                    response = await fetch(
+                        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`
+                            },
+                            body: formData
+                        }
+                    );
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        cloudFileId = result.id;
+                        localStorage.setItem('cestisCloudFileId', cloudFileId);
+                    }
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'Upload failed');
+                }
+
+                // Update last sync time
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                setCloudSyncing(false);
+                alert('✅ Data saved to Google Drive successfully!');
+
+            } catch (error) {
+                console.error('Error saving to cloud:', error);
+                setCloudSyncing(false);
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    alert('❌ Your session has expired. Please reconnect to Google Drive.');
+                    disconnectFromGoogleDrive();
+                } else {
+                    alert(`❌ Failed to save to cloud: ${error.message}`);
+                }
+            }
+        }
+
+        // Sync (download) data from Google Drive
+        async function syncFromCloud() {
+            if (!isCloudConnected || !googleAccessToken) {
+                alert('Please connect to Google Drive first');
+                return;
+            }
+
+            const menu = document.getElementById('cloudDropdownMenu');
+            menu.classList.remove('show');
+
+            // First try to find the file if we don't have the ID
+            if (!cloudFileId) {
+                await findExistingBackupFile();
+            }
+
+            if (!cloudFileId) {
+                alert('📁 No backup file found in Google Drive. Save your data first to create a backup.');
+                return;
+            }
+
+            if (!confirm('⚠️ This will replace your local data with the cloud backup. Are you sure you want to continue?')) {
+                return;
+            }
+
+            setCloudSyncing(true);
+
+            try {
+                // Download the file
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${googleAccessToken}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Failed to download backup');
+                }
+
+                const backupData = await response.json();
+
+                // Validate backup format
+                if (!backupData.data || !backupData.version) {
+                    throw new Error('Invalid backup file format');
+                }
+
+                // Restore data
+                if (backupData.data.users) {
+                    users = backupData.data.users;
+                    saveUsers();
+                }
+
+                if (backupData.data.students) {
+                    students = backupData.data.students;
+                    saveStudents();
+                }
+
+                if (backupData.data.attendanceRecords) {
+                    attendanceRecords = backupData.data.attendanceRecords;
+                    saveAttendanceRecords();
+                }
+
+                if (backupData.data.skills) {
+                    skills = backupData.data.skills;
+                    saveSkills();
+                }
+
+                // Update last sync time
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                // Refresh UI
+                populateSkillDropdowns();
+                if (currentUser && currentUser.role === 'Admin') {
+                    renderSkillsTable();
+                    renderStudentsTable();
+                    renderUsersTable();
+                }
+                renderTodayAttendance();
+
+                setCloudSyncing(false);
+
+                const backupTime = new Date(backupData.timestamp).toLocaleString();
+                alert(`✅ Data synced from cloud successfully!\n\nBackup was created: ${backupTime}`);
+
+            } catch (error) {
+                console.error('Error syncing from cloud:', error);
+                setCloudSyncing(false);
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    alert('❌ Your session has expired. Please reconnect to Google Drive.');
+                    disconnectFromGoogleDrive();
+                } else {
+                    alert(`❌ Failed to sync from cloud: ${error.message}`);
+                }
+            }
+        }
+
+        // Update last sync display
+        function updateLastSyncDisplay() {
+            const lastSyncInfo = document.getElementById('lastSyncInfo');
+            if (lastSyncTime) {
+                const timeAgo = getTimeAgo(lastSyncTime);
+                lastSyncInfo.textContent = `Last sync: ${timeAgo}`;
+            } else {
+                lastSyncInfo.textContent = 'Last sync: Never';
+            }
+        }
+
+        // Get human-readable time ago string
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
         }
 
         // Initialize
@@ -3962,6 +4691,9 @@
                 document.getElementById('themeIcon').textContent = '☀️';
                 document.getElementById('themeText').textContent = 'Light';
             }
+
+            // Initialize cloud sync
+            initializeCloudSync();
         });
     </script>
 </body>
