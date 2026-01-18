@@ -2168,30 +2168,57 @@
             <!-- View History Module -->
             <div id="viewHistory" class="module">
                 <h2>📊 Attendance History</h2>
-                
+
+                <!-- Month/Year Navigation -->
+                <div class="form-section" style="margin-bottom: var(--space-4);">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: var(--space-4); flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="navigateHistoryMonth(-1)" style="padding: var(--space-2) var(--space-4);">
+                            ◀ Previous
+                        </button>
+                        <div style="display: flex; align-items: center; gap: var(--space-2);">
+                            <select id="historyMonth" onchange="updateHistoryView()" style="padding: var(--space-2) var(--space-3); font-size: 1rem; min-width: 140px;">
+                                <option value="0">January</option>
+                                <option value="1">February</option>
+                                <option value="2">March</option>
+                                <option value="3">April</option>
+                                <option value="4">May</option>
+                                <option value="5">June</option>
+                                <option value="6">July</option>
+                                <option value="7">August</option>
+                                <option value="8">September</option>
+                                <option value="9">October</option>
+                                <option value="10">November</option>
+                                <option value="11">December</option>
+                            </select>
+                            <select id="historyYear" onchange="updateHistoryView()" style="padding: var(--space-2) var(--space-3); font-size: 1rem; min-width: 100px;">
+                                <!-- Years will be populated dynamically -->
+                            </select>
+                        </div>
+                        <button class="btn btn-secondary" onclick="navigateHistoryMonth(1)" style="padding: var(--space-2) var(--space-4);">
+                            Next ▶
+                        </button>
+                        <button class="btn btn-primary" onclick="goToCurrentMonth()" style="padding: var(--space-2) var(--space-4);">
+                            📅 Current Month
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
                 <div class="form-section">
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Student Name</label>
-                            <input type="text" id="historyStudentSearch" placeholder="Search student name...">
+                            <input type="text" id="historyStudentSearch" placeholder="Search student name..." onkeyup="updateHistoryView()">
                         </div>
                         <div class="form-group">
                             <label>Class/Skill</label>
-                            <select id="historyClassFilter">
+                            <select id="historyClassFilter" onchange="updateHistoryView()">
                                 <option value="">All Classes</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label>From Date</label>
-                            <input type="date" id="historyFromDate">
-                        </div>
-                        <div class="form-group">
-                            <label>To Date</label>
-                            <input type="date" id="historyToDate">
-                        </div>
-                        <div class="form-group" style="display: flex; align-items: flex-end;">
-                            <button class="btn btn-primary" onclick="filterHistory()">🔍 Search</button>
-                        </div>
+                    </div>
+                    <div id="historyStats" style="margin-top: var(--space-4); padding: var(--space-3); background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                        <!-- Stats will be populated dynamically -->
                     </div>
                 </div>
 
@@ -3883,15 +3910,88 @@
             });
         }
 
-        // Filter History
-        function filterHistory() {
+        // History Month/Year Navigation
+        function initializeHistoryView() {
+            const now = new Date();
+            const yearSelect = document.getElementById('historyYear');
+            const monthSelect = document.getElementById('historyMonth');
+
+            // Populate years (5 years back to current year)
+            yearSelect.innerHTML = '';
+            const currentYear = now.getFullYear();
+            for (let year = currentYear - 5; year <= currentYear + 1; year++) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            }
+
+            // Set current month and year
+            monthSelect.value = now.getMonth();
+            yearSelect.value = currentYear;
+
+            updateHistoryView();
+        }
+
+        function navigateHistoryMonth(direction) {
+            const monthSelect = document.getElementById('historyMonth');
+            const yearSelect = document.getElementById('historyYear');
+
+            let month = parseInt(monthSelect.value);
+            let year = parseInt(yearSelect.value);
+
+            month += direction;
+
+            if (month > 11) {
+                month = 0;
+                year++;
+            } else if (month < 0) {
+                month = 11;
+                year--;
+            }
+
+            // Update year select if needed (add new year option if not exists)
+            if (!Array.from(yearSelect.options).find(opt => opt.value == year)) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                if (direction > 0) {
+                    yearSelect.appendChild(option);
+                } else {
+                    yearSelect.insertBefore(option, yearSelect.firstChild);
+                }
+            }
+
+            monthSelect.value = month;
+            yearSelect.value = year;
+
+            updateHistoryView();
+        }
+
+        function goToCurrentMonth() {
+            const now = new Date();
+            const monthSelect = document.getElementById('historyMonth');
+            const yearSelect = document.getElementById('historyYear');
+
+            monthSelect.value = now.getMonth();
+            yearSelect.value = now.getFullYear();
+
+            updateHistoryView();
+        }
+
+        function updateHistoryView() {
+            const month = parseInt(document.getElementById('historyMonth').value);
+            const year = parseInt(document.getElementById('historyYear').value);
             const studentSearch = document.getElementById('historyStudentSearch').value.toLowerCase();
             const classFilter = document.getElementById('historyClassFilter').value;
-            const fromDate = document.getElementById('historyFromDate').value;
-            const toDate = document.getElementById('historyToDate').value;
 
-            let filtered = attendanceRecords;
+            // Filter records by selected month/year
+            let filtered = attendanceRecords.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate.getMonth() === month && recordDate.getFullYear() === year;
+            });
 
+            // Apply additional filters
             if (studentSearch) {
                 filtered = filtered.filter(a => a.studentName.toLowerCase().includes(studentSearch));
             }
@@ -3900,22 +4000,49 @@
                 filtered = filtered.filter(a => a.class === classFilter);
             }
 
-            if (fromDate) {
-                filtered = filtered.filter(a => a.date >= fromDate);
-            }
-
-            if (toDate) {
-                filtered = filtered.filter(a => a.date <= toDate);
-            }
-
             // Sort by date descending
             filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+            // Calculate stats
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+            const totalRecords = filtered.length;
+            const uniqueStudents = [...new Set(filtered.map(r => r.studentName))].length;
+            let totalHours = 0;
+            filtered.forEach(record => {
+                const hours = parseFloat(calculateNetHours(record.timeIn, record.timeOut, record.breakTime));
+                if (!isNaN(hours)) totalHours += hours;
+            });
+
+            // Update stats display
+            const statsDiv = document.getElementById('historyStats');
+            statsDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: var(--space-3); text-align: center;">
+                    <div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${monthNames[month]} ${year}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Selected Period</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--success);">${totalRecords}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Total Records</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--info);">${uniqueStudents}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Unique Students</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--warning);">${totalHours.toFixed(1)}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Total Hours</div>
+                    </div>
+                </div>
+            `;
+
+            // Render table
             const tbody = document.getElementById('historyTable');
             tbody.innerHTML = '';
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">No records found</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">No attendance records found for ${monthNames[month]} ${year}</td></tr>`;
                 return;
             }
 
@@ -3940,6 +4067,11 @@
                     </td>
                 `;
             });
+        }
+
+        // Legacy filter function (redirects to new view)
+        function filterHistory() {
+            updateHistoryView();
         }
 
         // Edit Attendance Modal Functions
@@ -5186,9 +5318,14 @@
         function switchModule(moduleId) {
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
-            
+
             document.querySelectorAll('.module').forEach(module => module.classList.remove('active'));
             document.getElementById(moduleId).classList.add('active');
+
+            // Initialize history view when switching to it
+            if (moduleId === 'viewHistory') {
+                initializeHistoryView();
+            }
         }
 
         // Dark Mode
