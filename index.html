@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CESTIS - Student Attendance Tracking System</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- jsPDF for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
         /* ============================================
            CESTIS Student Attendance System
@@ -1258,21 +1261,216 @@
         }
 
         /* ============================================
-           Print Styles
+           Print Styles - Enhanced for Reports
            ============================================ */
         @media print {
-            .header, .nav-tabs, .quick-actions, .btn, .logout-btn, .theme-toggle-btn {
+            /* Hide non-essential elements */
+            .header, .nav-tabs, .quick-actions, .logout-btn, .theme-toggle-btn,
+            .form-section, .btn:not(.print-visible), #loginPage, .modal,
+            .alert, .close-btn, [onclick*="delete"], [onclick*="edit"] {
                 display: none !important;
+            }
+
+            /* Reset page setup */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            body {
+                background: white !important;
+                color: black !important;
+                font-size: 11pt !important;
+                line-height: 1.4 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* Page margins */
+            @page {
+                margin: 1.5cm;
+                size: A4 landscape;
+            }
+
+            /* Container adjustments */
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
 
             .module {
                 display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                background: white !important;
             }
 
-            body {
-                background: white;
-                color: black;
+            /* Report results visible */
+            #reportResults {
+                display: block !important;
             }
+
+            /* Print header for reports */
+            .print-header {
+                display: block !important;
+                text-align: center;
+                margin-bottom: 20pt;
+                padding-bottom: 10pt;
+                border-bottom: 2pt solid #1e3a5f;
+            }
+
+            .print-header h1 {
+                font-size: 18pt !important;
+                color: #1e3a5f !important;
+                margin-bottom: 5pt !important;
+            }
+
+            .print-header p {
+                font-size: 10pt !important;
+                color: #666 !important;
+                margin: 2pt 0 !important;
+            }
+
+            /* Stats grid for print */
+            .stats-grid {
+                display: flex !important;
+                justify-content: space-around !important;
+                margin-bottom: 15pt !important;
+                gap: 10pt !important;
+                flex-wrap: wrap !important;
+            }
+
+            .stat-card {
+                background: #f8f9fa !important;
+                border: 1pt solid #ddd !important;
+                padding: 8pt 15pt !important;
+                border-radius: 4pt !important;
+                text-align: center !important;
+                box-shadow: none !important;
+                flex: 1 1 auto !important;
+                min-width: 100pt !important;
+            }
+
+            .stat-card .stat-label {
+                font-size: 8pt !important;
+                color: #666 !important;
+                text-transform: uppercase !important;
+                margin-bottom: 3pt !important;
+            }
+
+            .stat-card .stat-value {
+                font-size: 16pt !important;
+                font-weight: bold !important;
+                color: #1e3a5f !important;
+            }
+
+            /* Table styles for print */
+            .table-container {
+                overflow: visible !important;
+                background: white !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+
+            .table-container h3 {
+                font-size: 12pt !important;
+                margin-bottom: 8pt !important;
+                color: #333 !important;
+            }
+
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 9pt !important;
+                page-break-inside: auto !important;
+            }
+
+            thead {
+                display: table-header-group !important;
+            }
+
+            tr {
+                page-break-inside: avoid !important;
+                page-break-after: auto !important;
+            }
+
+            th {
+                background: #1e3a5f !important;
+                color: white !important;
+                padding: 8pt 6pt !important;
+                text-align: left !important;
+                font-weight: 600 !important;
+                border: 1pt solid #1e3a5f !important;
+                font-size: 9pt !important;
+            }
+
+            td {
+                padding: 6pt !important;
+                border: 1pt solid #ddd !important;
+                color: #333 !important;
+                vertical-align: middle !important;
+            }
+
+            tbody tr:nth-child(even) {
+                background: #f9f9f9 !important;
+            }
+
+            /* Status badges for print */
+            .badge {
+                padding: 2pt 6pt !important;
+                border-radius: 3pt !important;
+                font-size: 8pt !important;
+                font-weight: 600 !important;
+            }
+
+            .badge.present, .badge-success {
+                background: #d4edda !important;
+                color: #155724 !important;
+                border: 1pt solid #c3e6cb !important;
+            }
+
+            .badge.absent, .badge-danger {
+                background: #f8d7da !important;
+                color: #721c24 !important;
+                border: 1pt solid #f5c6cb !important;
+            }
+
+            .badge.late, .badge-warning {
+                background: #fff3cd !important;
+                color: #856404 !important;
+                border: 1pt solid #ffeeba !important;
+            }
+
+            /* Print footer */
+            .print-footer {
+                display: block !important;
+                margin-top: 20pt;
+                padding-top: 10pt;
+                border-top: 1pt solid #ddd;
+                font-size: 8pt;
+                color: #666;
+                text-align: center;
+            }
+
+            /* Hide print-only elements by default, show only when printing */
+            .print-only {
+                display: block !important;
+            }
+        }
+
+        /* Hide print-only elements on screen */
+        .print-only {
+            display: none;
+        }
+
+        .print-header {
+            display: none;
+        }
+
+        .print-footer {
+            display: none;
         }
     </style>
 </head>
@@ -1658,10 +1856,14 @@
 
                 <div class="form-section">
                     <h3>Generate Report</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--space-4); font-size: 0.9rem;">
+                        Use multiple filters together to narrow down your report results. All filters can be combined.
+                    </p>
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Report Type</label>
                             <select id="reportType">
+                                <option value="all">All Records</option>
                                 <option value="class">By Class</option>
                                 <option value="student">By Student</option>
                                 <option value="date">By Date Range</option>
@@ -1674,6 +1876,19 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>Student Name</label>
+                            <input type="text" id="reportStudentFilter" placeholder="Search by name...">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="reportStatusFilter">
+                                <option value="">All Statuses</option>
+                                <option value="Present">Present Only</option>
+                                <option value="Absent">Absent Only</option>
+                                <option value="Late">Late Only</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>From Date</label>
                             <input type="date" id="reportFromDate">
                         </div>
@@ -1681,23 +1896,41 @@
                             <label>To Date</label>
                             <input type="date" id="reportToDate">
                         </div>
-                        <div class="form-group" style="display: flex; align-items: flex-end;">
-                            <button class="btn btn-primary" onclick="generateReport()">📊 Generate Report</button>
-                        </div>
+                    </div>
+                    <div style="display: flex; gap: var(--space-4); margin-top: var(--space-4); flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="generateReport()">📊 Generate Report</button>
+                        <button class="btn btn-secondary" onclick="clearReportFilters()">🔄 Clear Filters</button>
                     </div>
                 </div>
 
                 <div id="reportResults" style="display: none;">
+                    <!-- Print Header (visible only when printing) -->
+                    <div class="print-header print-only">
+                        <h1>CESTIS Attendance Report</h1>
+                        <p>Community Educational and Skills Training Institute and Services Limited</p>
+                        <p id="printReportDate"></p>
+                        <p id="printReportFilters"></p>
+                    </div>
+
                     <div class="stats-grid" id="reportStats"></div>
                     <div class="table-container">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-5); flex-wrap: wrap; gap: var(--space-4);">
-                            <h3 style="margin-bottom: 0;">Report Results</h3>
-                            <button class="btn btn-success" onclick="exportReportToExcel()">📥 Export to Excel</button>
+                            <h3 style="margin-bottom: 0;">Report Results <span id="reportRecordCount" style="font-weight: normal; color: var(--text-secondary);"></span></h3>
+                            <div style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
+                                <button class="btn btn-success" onclick="exportReportToExcel()">📥 Excel</button>
+                                <button class="btn btn-info" onclick="exportReportToPDF()">📄 PDF</button>
+                                <button class="btn btn-secondary" onclick="printReport()">🖨️ Print</button>
+                            </div>
                         </div>
-                        <table>
+                        <table id="reportTable">
                             <thead id="reportTableHead"></thead>
                             <tbody id="reportTableBody"></tbody>
                         </table>
+                    </div>
+
+                    <!-- Print Footer (visible only when printing) -->
+                    <div class="print-footer print-only">
+                        <p>Generated on: <span id="printGeneratedDate"></span> | CESTIS Student Attendance System</p>
                     </div>
                 </div>
             </div>
@@ -2886,18 +3119,49 @@
         }
 
         // Generate Report
+        // Store current report data for exports
+        let currentReportData = [];
+        let currentReportFilters = {};
+
         function generateReport() {
             const reportType = document.getElementById('reportType').value;
             const classFilter = document.getElementById('reportClassSelect').value;
+            const studentFilter = document.getElementById('reportStudentFilter').value.trim().toLowerCase();
+            const statusFilter = document.getElementById('reportStatusFilter').value;
             const fromDate = document.getElementById('reportFromDate').value;
             const toDate = document.getElementById('reportToDate').value;
 
-            let filtered = attendanceRecords;
+            let filtered = [...attendanceRecords];
 
+            // Store filters for export headers
+            currentReportFilters = {
+                reportType,
+                classFilter,
+                studentFilter,
+                statusFilter,
+                fromDate,
+                toDate
+            };
+
+            // Apply Class/Skill filter
             if (classFilter) {
                 filtered = filtered.filter(a => a.class === classFilter);
             }
 
+            // Apply Student Name filter (partial match, case-insensitive)
+            if (studentFilter) {
+                filtered = filtered.filter(a =>
+                    a.studentName.toLowerCase().includes(studentFilter) ||
+                    (a.regNo && a.regNo.toLowerCase().includes(studentFilter))
+                );
+            }
+
+            // Apply Status filter
+            if (statusFilter) {
+                filtered = filtered.filter(a => a.status === statusFilter);
+            }
+
+            // Apply Date Range filters
             if (fromDate) {
                 filtered = filtered.filter(a => a.date >= fromDate);
             }
@@ -2907,15 +3171,32 @@
             }
 
             if (filtered.length === 0) {
-                alert('No records found for the selected criteria');
+                alert('No records found for the selected criteria. Try adjusting your filters.');
+                document.getElementById('reportResults').style.display = 'none';
                 return;
             }
+
+            // Store filtered data for exports
+            currentReportData = filtered;
 
             // Calculate stats
             const totalPresent = filtered.filter(a => a.status === 'Present').length;
             const totalAbsent = filtered.filter(a => a.status === 'Absent').length;
             const totalLate = filtered.filter(a => a.status === 'Late').length;
             const attendanceRate = ((totalPresent + totalLate) / filtered.length * 100).toFixed(1);
+
+            // Calculate total hours worked
+            let totalMinutes = 0;
+            filtered.forEach(record => {
+                if (record.timeIn && record.timeOut) {
+                    const [inH, inM] = record.timeIn.split(':').map(Number);
+                    const [outH, outM] = record.timeOut.split(':').map(Number);
+                    const mins = (outH * 60 + outM) - (inH * 60 + inM) - (record.breakTime || 0);
+                    if (mins > 0) totalMinutes += mins;
+                }
+            });
+            const totalHours = Math.floor(totalMinutes / 60);
+            const totalMins = totalMinutes % 60;
 
             const statsHtml = `
                 <div class="stat-card">
@@ -2924,23 +3205,45 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Present</div>
-                    <div class="stat-value">${totalPresent}</div>
+                    <div class="stat-value" style="color: var(--success);">${totalPresent}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Absent</div>
-                    <div class="stat-value">${totalAbsent}</div>
+                    <div class="stat-value" style="color: var(--danger);">${totalAbsent}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Late</div>
-                    <div class="stat-value">${totalLate}</div>
+                    <div class="stat-value" style="color: var(--warning);">${totalLate}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Attendance Rate</div>
                     <div class="stat-value">${attendanceRate}%</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Hours</div>
+                    <div class="stat-value">${totalHours}h ${totalMins}m</div>
+                </div>
             `;
 
             document.getElementById('reportStats').innerHTML = statsHtml;
+
+            // Update record count
+            document.getElementById('reportRecordCount').textContent = `(${filtered.length} records)`;
+
+            // Update print header info
+            const dateRangeText = fromDate || toDate
+                ? `Date Range: ${fromDate || 'Start'} to ${toDate || 'Present'}`
+                : `All Dates`;
+            document.getElementById('printReportDate').textContent = dateRangeText;
+
+            const filterParts = [];
+            if (classFilter) filterParts.push(`Class: ${classFilter}`);
+            if (studentFilter) filterParts.push(`Student: ${studentFilter}`);
+            if (statusFilter) filterParts.push(`Status: ${statusFilter}`);
+            document.getElementById('printReportFilters').textContent = filterParts.length > 0
+                ? `Filters: ${filterParts.join(' | ')}`
+                : 'All Records';
+            document.getElementById('printGeneratedDate').textContent = new Date().toLocaleString();
 
             // Render table
             const thead = document.getElementById('reportTableHead');
@@ -2975,7 +3278,7 @@
                     <td>${statusBadge}</td>
                     <td>${record.timeIn || 'N/A'}</td>
                     <td>${record.timeOut || 'N/A'}</td>
-                    <td>${record.breakTime}</td>
+                    <td>${record.breakTime || 0}</td>
                     <td><strong>${netHours}</strong></td>
                 `;
             });
@@ -2983,11 +3286,185 @@
             document.getElementById('reportResults').style.display = 'block';
         }
 
+        // Clear all report filters
+        function clearReportFilters() {
+            document.getElementById('reportType').value = 'all';
+            document.getElementById('reportClassSelect').value = '';
+            document.getElementById('reportStudentFilter').value = '';
+            document.getElementById('reportStatusFilter').value = '';
+            document.getElementById('reportFromDate').value = '';
+            document.getElementById('reportToDate').value = '';
+            document.getElementById('reportResults').style.display = 'none';
+            currentReportData = [];
+            currentReportFilters = {};
+        }
+
         // Export Report to Excel
         function exportReportToExcel() {
-            const table = document.querySelector('#reportResults table');
-            const wb = XLSX.utils.table_to_book(table);
+            if (currentReportData.length === 0) {
+                alert('Please generate a report first');
+                return;
+            }
+
+            // Create workbook with formatted data
+            const exportData = currentReportData.map(record => ({
+                'Date': new Date(record.date).toLocaleDateString(),
+                'Student Name': record.studentName,
+                'Reg No': record.regNo,
+                'Class/Skill': record.class,
+                'Status': record.status,
+                'Time In': record.timeIn || 'N/A',
+                'Time Out': record.timeOut || 'N/A',
+                'Break (min)': record.breakTime || 0,
+                'Net Hours': calculateNetHours(record.timeIn, record.timeOut, record.breakTime)
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Attendance Report');
+
+            // Auto-size columns
+            const colWidths = [
+                { wch: 12 }, // Date
+                { wch: 25 }, // Student Name
+                { wch: 12 }, // Reg No
+                { wch: 20 }, // Class
+                { wch: 10 }, // Status
+                { wch: 10 }, // Time In
+                { wch: 10 }, // Time Out
+                { wch: 12 }, // Break
+                { wch: 12 }  // Net Hours
+            ];
+            ws['!cols'] = colWidths;
+
             XLSX.writeFile(wb, `Attendance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        // Export Report to PDF
+        function exportReportToPDF() {
+            if (currentReportData.length === 0) {
+                alert('Please generate a report first');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
+
+            // Add header
+            doc.setFontSize(18);
+            doc.setTextColor(30, 58, 95); // Primary color
+            doc.text('CESTIS Attendance Report', 148, 15, { align: 'center' });
+
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Community Educational and Skills Training Institute and Services Limited', 148, 22, { align: 'center' });
+
+            // Add filter info
+            doc.setFontSize(9);
+            const filterParts = [];
+            if (currentReportFilters.classFilter) filterParts.push(`Class: ${currentReportFilters.classFilter}`);
+            if (currentReportFilters.studentFilter) filterParts.push(`Student: ${currentReportFilters.studentFilter}`);
+            if (currentReportFilters.statusFilter) filterParts.push(`Status: ${currentReportFilters.statusFilter}`);
+            if (currentReportFilters.fromDate || currentReportFilters.toDate) {
+                filterParts.push(`Date: ${currentReportFilters.fromDate || 'Start'} to ${currentReportFilters.toDate || 'Present'}`);
+            }
+            const filterText = filterParts.length > 0 ? filterParts.join(' | ') : 'All Records';
+            doc.text(`Filters: ${filterText}`, 14, 30);
+
+            // Calculate stats for summary
+            const totalPresent = currentReportData.filter(a => a.status === 'Present').length;
+            const totalAbsent = currentReportData.filter(a => a.status === 'Absent').length;
+            const totalLate = currentReportData.filter(a => a.status === 'Late').length;
+            const attendanceRate = ((totalPresent + totalLate) / currentReportData.length * 100).toFixed(1);
+
+            // Add summary stats
+            doc.setFontSize(9);
+            doc.text(`Summary: ${currentReportData.length} Records | Present: ${totalPresent} | Absent: ${totalAbsent} | Late: ${totalLate} | Attendance Rate: ${attendanceRate}%`, 14, 36);
+
+            // Prepare table data
+            const tableData = currentReportData.map(record => [
+                new Date(record.date).toLocaleDateString(),
+                record.studentName,
+                record.regNo,
+                record.class,
+                record.status,
+                record.timeIn || 'N/A',
+                record.timeOut || 'N/A',
+                (record.breakTime || 0).toString(),
+                calculateNetHours(record.timeIn, record.timeOut, record.breakTime)
+            ]);
+
+            // Generate table using autoTable
+            doc.autoTable({
+                startY: 42,
+                head: [['Date', 'Student Name', 'Reg No', 'Class/Skill', 'Status', 'Time In', 'Time Out', 'Break', 'Net Hours']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: {
+                    fillColor: [30, 58, 95],
+                    textColor: 255,
+                    fontStyle: 'bold',
+                    fontSize: 8
+                },
+                bodyStyles: {
+                    fontSize: 8
+                },
+                alternateRowStyles: {
+                    fillColor: [248, 249, 250]
+                },
+                columnStyles: {
+                    0: { cellWidth: 22 },
+                    1: { cellWidth: 40 },
+                    2: { cellWidth: 22 },
+                    3: { cellWidth: 35 },
+                    4: { cellWidth: 18 },
+                    5: { cellWidth: 18 },
+                    6: { cellWidth: 18 },
+                    7: { cellWidth: 15 },
+                    8: { cellWidth: 20 }
+                },
+                didParseCell: function(data) {
+                    // Color code status column
+                    if (data.column.index === 4 && data.section === 'body') {
+                        if (data.cell.raw === 'Present') {
+                            data.cell.styles.textColor = [5, 150, 105];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (data.cell.raw === 'Absent') {
+                            data.cell.styles.textColor = [220, 38, 38];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (data.cell.raw === 'Late') {
+                            data.cell.styles.textColor = [217, 119, 6];
+                            data.cell.styles.fontStyle = 'bold';
+                        }
+                    }
+                },
+                margin: { left: 14, right: 14 }
+            });
+
+            // Add footer with page numbers
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128);
+                doc.text(
+                    `Generated: ${new Date().toLocaleString()} | Page ${i} of ${pageCount} | CESTIS Student Attendance System`,
+                    148,
+                    doc.internal.pageSize.height - 10,
+                    { align: 'center' }
+                );
+            }
+
+            doc.save(`Attendance_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
+
+        // Print Report
+        function printReport() {
+            if (currentReportData.length === 0) {
+                alert('Please generate a report first');
+                return;
+            }
+            window.print();
         }
 
         // User Management
