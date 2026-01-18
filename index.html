@@ -5086,46 +5086,81 @@
             showGoogleAuthModal();
         }
 
-        // Show authentication modal
+        // Show authentication modal with two options
         function showGoogleAuthModal() {
             const modalHTML = `
                 <div id="googleAuthModal" class="modal" style="display: flex;">
-                    <div class="modal-content" style="max-width: 520px;">
+                    <div class="modal-content" style="max-width: 560px;">
                         <div class="modal-header">
                             <h2>☁️ Connect to Google Drive</h2>
                             <button class="close-btn" onclick="closeGoogleAuthModal()">×</button>
                         </div>
                         <div style="padding: var(--space-6);">
-                            <p style="margin-bottom: var(--space-4); color: var(--text-secondary);">
-                                Connect to Google Drive to save and sync your attendance data across devices.
+                            <p style="margin-bottom: var(--space-5); color: var(--text-secondary);">
+                                Connect to Google Drive to save and sync your attendance data across devices. Choose your preferred connection method:
                             </p>
 
-                            <div style="background: var(--info-bg); border: 1px solid var(--info-border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-4);">
-                                <strong style="color: var(--info);">How to get your access token:</strong>
-                                <ol style="margin-top: var(--space-2); margin-left: var(--space-4); color: var(--text-secondary); font-size: 0.875rem; line-height: 1.6;">
-                                    <li>Click the link below to open Google OAuth Playground</li>
-                                    <li>In Step 1, find and select <strong>"Drive API v3"</strong> → check <strong>"drive.file"</strong></li>
-                                    <li>Click <strong>"Authorize APIs"</strong> (blue button)</li>
-                                    <li>Sign in with your Google account</li>
-                                    <li>In Step 2, click <strong>"Exchange authorization code for tokens"</strong></li>
-                                    <li>Copy the <strong>"Access token"</strong> value and paste below</li>
-                                </ol>
-                                <a href="https://developers.google.com/oauthplayground" target="_blank"
-                                   style="display: inline-block; margin-top: var(--space-3); padding: var(--space-2) var(--space-4); background: var(--accent); color: white; border-radius: var(--radius-md); text-decoration: none; font-weight: 600; font-size: 0.875rem;">
-                                    🔗 Open OAuth Playground
-                                </a>
-                            </div>
-
-                            <div class="form-group" style="margin-bottom: var(--space-4);">
-                                <label style="font-weight: 600;">Access Token</label>
-                                <textarea id="googleAccessTokenInput" rows="4" style="width: 100%; padding: var(--space-3); border: 2px solid var(--border-light); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.75rem; resize: vertical; margin-top: var(--space-2);" placeholder="Paste your access token here..."></textarea>
-                            </div>
-
-                            <div style="display: flex; gap: var(--space-4); justify-content: flex-end;">
-                                <button class="btn btn-secondary" onclick="closeGoogleAuthModal()">Cancel</button>
-                                <button class="btn btn-success" onclick="submitGoogleToken()">
-                                    ☁️ Connect
+                            <!-- Option 1: Direct Google Sign-In (Recommended) -->
+                            <div style="background: var(--success-bg); border: 2px solid var(--success); border-radius: var(--radius-lg); padding: var(--space-5); margin-bottom: var(--space-4);">
+                                <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
+                                    <span style="font-size: 1.5rem;">🔐</span>
+                                    <div>
+                                        <strong style="color: var(--success); font-size: 1.1rem;">Direct Google Sign-In</strong>
+                                        <span style="background: var(--success); color: white; padding: 2px 8px; border-radius: var(--radius-sm); font-size: 0.7rem; margin-left: var(--space-2); font-weight: 600;">RECOMMENDED</span>
+                                    </div>
+                                </div>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-4);">
+                                    A Google popup will appear for you to sign in with your Google account directly.
+                                </p>
+                                <button class="btn btn-success" onclick="triggerDirectGoogleSignIn()" style="width: 100%; padding: var(--space-3);">
+                                    Sign in with Google
                                 </button>
+                            </div>
+
+                            <!-- Option 2: Manual Token Method -->
+                            <div id="manualTokenSection" style="background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: var(--space-5);">
+                                <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3);">
+                                    <span style="font-size: 1.5rem;">🔧</span>
+                                    <strong style="color: var(--text-primary); font-size: 1.1rem;">Manual Token Method</strong>
+                                </div>
+                                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-4);">
+                                    If the popup doesn't work, you can still use the OAuth Playground to get a token manually.
+                                </p>
+                                <button class="btn btn-secondary" onclick="showManualTokenForm()" id="showManualTokenBtn" style="width: 100%;">
+                                    Use Manual Method
+                                </button>
+
+                                <!-- Manual token form (hidden by default) -->
+                                <div id="manualTokenForm" style="display: none; margin-top: var(--space-4);">
+                                    <div style="background: var(--info-bg); border: 1px solid var(--info-border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-4);">
+                                        <strong style="color: var(--info);">How to get your access token:</strong>
+                                        <ol style="margin-top: var(--space-2); margin-left: var(--space-4); color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6;">
+                                            <li>Click the link below to open Google OAuth Playground</li>
+                                            <li>In Step 1, find and select <strong>"Drive API v3"</strong> → check <strong>"drive.file"</strong></li>
+                                            <li>Click <strong>"Authorize APIs"</strong> (blue button)</li>
+                                            <li>Sign in with your Google account</li>
+                                            <li>In Step 2, click <strong>"Exchange authorization code for tokens"</strong></li>
+                                            <li>Copy the <strong>"Access token"</strong> value and paste below</li>
+                                        </ol>
+                                        <a href="https://developers.google.com/oauthplayground" target="_blank"
+                                           style="display: inline-block; margin-top: var(--space-3); padding: var(--space-2) var(--space-4); background: var(--accent); color: white; border-radius: var(--radius-md); text-decoration: none; font-weight: 600; font-size: 0.875rem;">
+                                            🔗 Open OAuth Playground
+                                        </a>
+                                    </div>
+
+                                    <div class="form-group" style="margin-bottom: var(--space-4);">
+                                        <label style="font-weight: 600;">Access Token</label>
+                                        <textarea id="googleAccessTokenInput" rows="4" style="width: 100%; padding: var(--space-3); border: 2px solid var(--border-light); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 0.75rem; resize: vertical; margin-top: var(--space-2);" placeholder="Paste your access token here..."></textarea>
+                                    </div>
+
+                                    <button class="btn btn-success" onclick="submitGoogleToken()" style="width: 100%;">
+                                        ☁️ Connect with Token
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: var(--space-4); text-align: center;">
+                                <button class="btn btn-secondary" onclick="closeGoogleAuthModal()">Cancel</button>
                             </div>
                         </div>
                     </div>
@@ -5133,6 +5168,36 @@
             `;
 
             document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // Trigger the direct Google Sign-In popup
+        function triggerDirectGoogleSignIn() {
+            closeGoogleAuthModal();
+            if (googleTokenClient) {
+                googleTokenClient.requestAccessToken();
+            } else {
+                initGoogleAuth();
+                setTimeout(() => {
+                    if (googleTokenClient) {
+                        googleTokenClient.requestAccessToken();
+                    } else {
+                        alert('Google Sign-In popup is not available. Please use the manual token method.');
+                        showGoogleAuthModal();
+                        // Auto-expand the manual form
+                        setTimeout(() => showManualTokenForm(), 100);
+                    }
+                }, 500);
+            }
+        }
+
+        // Show the manual token form
+        function showManualTokenForm() {
+            const form = document.getElementById('manualTokenForm');
+            const btn = document.getElementById('showManualTokenBtn');
+            if (form && btn) {
+                form.style.display = 'block';
+                btn.style.display = 'none';
+            }
         }
 
         function retryGoogleSignIn() {
