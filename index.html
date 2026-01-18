@@ -4266,7 +4266,7 @@
             document.getElementById('printReportDate').textContent = dateRangeText;
 
             const filterParts = [];
-            if (classFilter) filterParts.push(`Class: ${classFilter}`);
+            if (classFilter) filterParts.push(`${classFilter} Class`);
             if (studentFilter) filterParts.push(`Student: ${studentFilter}`);
             if (statusFilter) filterParts.push(`Status: ${statusFilter}`);
             document.getElementById('printReportFilters').textContent = filterParts.length > 0
@@ -4391,7 +4391,7 @@
             // Add filter info
             doc.setFontSize(9);
             const filterParts = [];
-            if (currentReportFilters.classFilter) filterParts.push(`Class: ${currentReportFilters.classFilter}`);
+            if (currentReportFilters.classFilter) filterParts.push(`${currentReportFilters.classFilter} Class`);
             if (currentReportFilters.studentFilter) filterParts.push(`Student: ${currentReportFilters.studentFilter}`);
             if (currentReportFilters.statusFilter) filterParts.push(`Status: ${currentReportFilters.statusFilter}`);
             if (currentReportFilters.fromDate || currentReportFilters.toDate) {
@@ -4759,7 +4759,7 @@
 
             // Build filter description
             const filterParts = [];
-            if (currentReportFilters.classFilter) filterParts.push(`Class: ${currentReportFilters.classFilter}`);
+            if (currentReportFilters.classFilter) filterParts.push(`${currentReportFilters.classFilter} Class`);
             if (currentReportFilters.studentFilter) filterParts.push(`Student: ${currentReportFilters.studentFilter}`);
             if (currentReportFilters.statusFilter) filterParts.push(`Status: ${currentReportFilters.statusFilter}`);
             if (currentReportFilters.fromDate) filterParts.push(`From: ${currentReportFilters.fromDate}`);
