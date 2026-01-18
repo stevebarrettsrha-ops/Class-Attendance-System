@@ -11,6 +11,9 @@
     <!-- Google API for Drive Integration -->
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
+    <!-- TOTP/2FA Libraries for Google Authenticator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/otpauth/9.2.2/otpauth.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         /* ============================================
            CESTIS Student Attendance System
@@ -1640,6 +1643,284 @@
         .print-footer {
             display: none;
         }
+
+        /* ============================================
+           Two-Factor Authentication (2FA) Styles
+           ============================================ */
+        .twofa-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+
+        .twofa-modal {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-xl);
+            padding: var(--space-8);
+            max-width: 450px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-2xl);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .twofa-modal-header {
+            text-align: center;
+            margin-bottom: var(--space-6);
+        }
+
+        .twofa-modal-header h2 {
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+        }
+
+        .twofa-modal-header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .twofa-qr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: var(--space-6) 0;
+            padding: var(--space-6);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-lg);
+        }
+
+        .twofa-qr-container canvas,
+        .twofa-qr-container img {
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-4);
+        }
+
+        .twofa-secret-key {
+            font-family: var(--font-mono);
+            background: var(--bg-secondary);
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            color: var(--text-primary);
+            border: 1px dashed var(--border-medium);
+            word-break: break-all;
+            text-align: center;
+        }
+
+        .twofa-secret-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--space-2);
+        }
+
+        .twofa-code-input {
+            display: flex;
+            gap: var(--space-2);
+            justify-content: center;
+            margin: var(--space-6) 0;
+        }
+
+        .twofa-code-input input {
+            width: 45px;
+            height: 55px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            border: 2px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: var(--transition-fast);
+        }
+
+        .twofa-code-input input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+        }
+
+        .twofa-single-input {
+            width: 100%;
+            padding: var(--space-4);
+            text-align: center;
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: 8px;
+            border: 2px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: var(--transition-fast);
+        }
+
+        .twofa-single-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+        }
+
+        .twofa-actions {
+            display: flex;
+            gap: var(--space-3);
+            justify-content: center;
+            margin-top: var(--space-6);
+        }
+
+        .twofa-actions button {
+            padding: var(--space-3) var(--space-6);
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+
+        .twofa-btn-primary {
+            background: var(--success);
+            color: white;
+            border: none;
+        }
+
+        .twofa-btn-primary:hover {
+            background: var(--success-dark);
+        }
+
+        .twofa-btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-medium);
+        }
+
+        .twofa-btn-secondary:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .twofa-btn-danger {
+            background: var(--danger);
+            color: white;
+            border: none;
+        }
+
+        .twofa-btn-danger:hover {
+            background: var(--danger-dark);
+        }
+
+        .twofa-backup-codes {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-2);
+            margin: var(--space-4) 0;
+            padding: var(--space-4);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+
+        .twofa-backup-code {
+            font-family: var(--font-mono);
+            padding: var(--space-2);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .twofa-backup-code.used {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .twofa-warning {
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+            font-size: 0.875rem;
+            color: var(--warning-dark);
+        }
+
+        .twofa-success {
+            background: var(--success-bg);
+            border: 1px solid var(--success-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+            font-size: 0.875rem;
+            color: var(--success-dark);
+        }
+
+        .twofa-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-1) var(--space-3);
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .twofa-status-badge.enabled {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .twofa-status-badge.disabled {
+            background: var(--gray-100);
+            color: var(--gray-500);
+        }
+
+        .twofa-setup-btn {
+            padding: var(--space-2) var(--space-4);
+            font-size: 0.85rem;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+
+        .twofa-login-step {
+            text-align: center;
+        }
+
+        .twofa-login-step .login-subtitle {
+            margin-bottom: var(--space-4);
+        }
+
+        .twofa-use-backup {
+            margin-top: var(--space-4);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .twofa-use-backup a {
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .twofa-use-backup a:hover {
+            color: var(--accent-dark);
+        }
     </style>
 </head>
 <body>
@@ -1655,19 +1936,47 @@
 
             <div class="login-error" id="loginError"></div>
 
-            <form onsubmit="handleLogin(event)">
-                <div class="input-group">
-                    <label>Username</label>
-                    <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
-                </div>
+            <!-- Step 1: Username/Password -->
+            <div id="loginStep1">
+                <form onsubmit="handleLogin(event)">
+                    <div class="input-group">
+                        <label>Username</label>
+                        <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                    </div>
+
+                    <button type="submit" class="login-btn">🔐 Login</button>
+                </form>
+            </div>
+
+            <!-- Step 2: 2FA Verification -->
+            <div id="loginStep2FA" style="display: none;" class="twofa-login-step">
+                <p class="login-subtitle">Enter the 6-digit code from your authenticator app</p>
 
                 <div class="input-group">
-                    <label>Password</label>
-                    <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                    <input type="text" id="login2FACode" class="twofa-single-input" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="000000" autocomplete="one-time-code">
                 </div>
 
-                <button type="submit" class="login-btn">🔐 Login</button>
-            </form>
+                <button type="button" class="login-btn" onclick="verify2FALogin()">Verify Code</button>
+
+                <div class="twofa-use-backup">
+                    <a onclick="showBackupCodeInput()">Use a backup code instead</a>
+                </div>
+
+                <div id="backupCodeSection" style="display: none; margin-top: var(--space-4);">
+                    <div class="input-group">
+                        <label>Backup Code</label>
+                        <input type="text" id="loginBackupCode" class="login-input" placeholder="Enter backup code" style="text-transform: uppercase; letter-spacing: 2px;">
+                    </div>
+                    <button type="button" class="login-btn" onclick="verifyBackupCodeLogin()" style="background: var(--warning);">Use Backup Code</button>
+                </div>
+
+                <button type="button" class="login-btn" onclick="cancelTwoFALogin()" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-medium); margin-top: var(--space-3);">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -2186,6 +2495,7 @@
                                 <th>Username</th>
                                 <th>Full Name</th>
                                 <th>Role</th>
+                                <th>2FA Status</th>
                                 <th>Created Date</th>
                                 <th>Actions</th>
                             </tr>
@@ -2193,6 +2503,94 @@
                         <tbody id="usersTable"></tbody>
                     </table>
                 </div>
+
+                <!-- Current User 2FA Settings -->
+                <div class="form-section" style="margin-top: var(--space-6);">
+                    <h3>Your Two-Factor Authentication</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--space-4); font-size: 0.9rem;">
+                        Protect your account with Google Authenticator or any TOTP-compatible app.
+                    </p>
+                    <div id="current2FAStatus">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA Setup Modal -->
+    <div id="twofaSetupModal" class="twofa-modal-overlay" style="display: none;">
+        <div class="twofa-modal">
+            <div class="twofa-modal-header">
+                <h2>Set Up Two-Factor Authentication</h2>
+                <p>Scan the QR code with Google Authenticator or any TOTP app</p>
+            </div>
+
+            <div class="twofa-qr-container">
+                <div id="twofaQRCode"></div>
+                <div class="twofa-secret-label">Or enter this code manually:</div>
+                <div class="twofa-secret-key" id="twofaSecretKey"></div>
+            </div>
+
+            <div class="twofa-warning">
+                <strong>Important:</strong> Save the secret key in a safe place. You'll need it if you lose access to your authenticator app.
+            </div>
+
+            <div class="input-group" style="margin-top: var(--space-4);">
+                <label>Enter the 6-digit code to verify setup:</label>
+                <input type="text" id="twofaSetupCode" class="twofa-single-input" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="000000">
+            </div>
+
+            <div class="twofa-actions">
+                <button type="button" class="twofa-btn-secondary" onclick="closeTwoFASetup()">Cancel</button>
+                <button type="button" class="twofa-btn-primary" onclick="confirmTwoFASetup()">Enable 2FA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA Backup Codes Modal -->
+    <div id="twofaBackupModal" class="twofa-modal-overlay" style="display: none;">
+        <div class="twofa-modal">
+            <div class="twofa-modal-header">
+                <h2>Backup Codes</h2>
+                <p>Save these codes in a secure location. Each code can only be used once.</p>
+            </div>
+
+            <div class="twofa-warning">
+                <strong>Warning:</strong> These codes will only be shown once. Make sure to save them now!
+            </div>
+
+            <div class="twofa-backup-codes" id="twofaBackupCodes">
+                <!-- Backup codes will be populated here -->
+            </div>
+
+            <div class="twofa-actions">
+                <button type="button" class="twofa-btn-secondary" onclick="copyBackupCodes()">Copy Codes</button>
+                <button type="button" class="twofa-btn-primary" onclick="closeBackupCodesModal()">I've Saved These Codes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA Disable Confirmation Modal -->
+    <div id="twofaDisableModal" class="twofa-modal-overlay" style="display: none;">
+        <div class="twofa-modal">
+            <div class="twofa-modal-header">
+                <h2>Disable Two-Factor Authentication</h2>
+                <p>Enter your current 2FA code to confirm</p>
+            </div>
+
+            <div class="twofa-warning">
+                <strong>Warning:</strong> Disabling 2FA will make your account less secure.
+            </div>
+
+            <div class="input-group" style="margin-top: var(--space-4);">
+                <label>Enter 6-digit code from your authenticator:</label>
+                <input type="text" id="twofaDisableCode" class="twofa-single-input" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="000000">
+            </div>
+
+            <div class="twofa-actions">
+                <button type="button" class="twofa-btn-secondary" onclick="closeTwoFADisable()">Cancel</button>
+                <button type="button" class="twofa-btn-danger" onclick="confirmTwoFADisable()">Disable 2FA</button>
             </div>
         </div>
     </div>
@@ -2479,27 +2877,31 @@
             localStorage.setItem('cestisSkills', JSON.stringify(skills));
         }
 
+        // Pending 2FA user (during login)
+        let pendingTwoFAUser = null;
+
         // Login
         function handleLogin(event) {
             event.preventDefault();
-            
+
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
-            
+
             const user = users.find(u => u.username === username && u.password === password);
-            
+
             if (user) {
-                currentUser = user;
-                sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(user));
-                
-                document.getElementById('loginPage').style.display = 'none';
-                document.getElementById('mainDashboard').style.display = 'block';
-                document.getElementById('currentUserDisplay').textContent = `👤 ${user.fullName} (${user.role})`;
-                
-                updateUIForRole();
-                populateClassDropdowns();
-                renderTodayAttendance();
-                
+                // Check if 2FA is enabled for this user
+                if (user.twoFactorEnabled && user.twoFactorSecret) {
+                    // Store user temporarily and show 2FA verification
+                    pendingTwoFAUser = user;
+                    document.getElementById('loginStep1').style.display = 'none';
+                    document.getElementById('loginStep2FA').style.display = 'block';
+                    document.getElementById('login2FACode').value = '';
+                    document.getElementById('login2FACode').focus();
+                } else {
+                    // No 2FA, proceed with login
+                    completeLogin(user);
+                }
             } else {
                 const errorDiv = document.getElementById('loginError');
                 errorDiv.textContent = '❌ Invalid credentials';
@@ -2508,16 +2910,125 @@
             }
         }
 
+        // Complete login after credentials (and 2FA if enabled) are verified
+        function completeLogin(user) {
+            currentUser = user;
+            sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(user));
+
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('mainDashboard').style.display = 'block';
+            document.getElementById('currentUserDisplay').textContent = `👤 ${user.fullName} (${user.role})`;
+
+            updateUIForRole();
+            populateClassDropdowns();
+            renderTodayAttendance();
+            render2FAStatus();
+
+            // Reset login form state
+            pendingTwoFAUser = null;
+            document.getElementById('loginStep1').style.display = 'block';
+            document.getElementById('loginStep2FA').style.display = 'none';
+            document.getElementById('backupCodeSection').style.display = 'none';
+        }
+
+        // Verify 2FA code during login
+        function verify2FALogin() {
+            const code = document.getElementById('login2FACode').value.trim();
+
+            if (!code || code.length !== 6) {
+                showLoginError('Please enter a 6-digit code');
+                return;
+            }
+
+            if (!pendingTwoFAUser) {
+                showLoginError('Session expired. Please try again.');
+                cancelTwoFALogin();
+                return;
+            }
+
+            // Verify TOTP code
+            if (verifyTOTPCode(pendingTwoFAUser.twoFactorSecret, code)) {
+                completeLogin(pendingTwoFAUser);
+            } else {
+                showLoginError('Invalid code. Please try again.');
+                document.getElementById('login2FACode').value = '';
+                document.getElementById('login2FACode').focus();
+            }
+        }
+
+        // Verify backup code during login
+        function verifyBackupCodeLogin() {
+            const backupCode = document.getElementById('loginBackupCode').value.trim().toUpperCase();
+
+            if (!backupCode) {
+                showLoginError('Please enter a backup code');
+                return;
+            }
+
+            if (!pendingTwoFAUser) {
+                showLoginError('Session expired. Please try again.');
+                cancelTwoFALogin();
+                return;
+            }
+
+            // Check if backup code is valid and not used
+            const codeIndex = pendingTwoFAUser.backupCodes ?
+                pendingTwoFAUser.backupCodes.findIndex(bc => bc.code === backupCode && !bc.used) : -1;
+
+            if (codeIndex !== -1) {
+                // Mark backup code as used
+                const userIndex = users.findIndex(u => u.id === pendingTwoFAUser.id);
+                if (userIndex !== -1) {
+                    users[userIndex].backupCodes[codeIndex].used = true;
+                    saveUsers();
+                    pendingTwoFAUser = users[userIndex];
+                }
+                completeLogin(pendingTwoFAUser);
+            } else {
+                showLoginError('Invalid or already used backup code');
+                document.getElementById('loginBackupCode').value = '';
+                document.getElementById('loginBackupCode').focus();
+            }
+        }
+
+        // Show backup code input
+        function showBackupCodeInput() {
+            document.getElementById('backupCodeSection').style.display = 'block';
+        }
+
+        // Cancel 2FA login and go back
+        function cancelTwoFALogin() {
+            pendingTwoFAUser = null;
+            document.getElementById('loginStep1').style.display = 'block';
+            document.getElementById('loginStep2FA').style.display = 'none';
+            document.getElementById('backupCodeSection').style.display = 'none';
+            document.getElementById('login2FACode').value = '';
+            document.getElementById('loginBackupCode').value = '';
+            document.getElementById('loginPassword').value = '';
+        }
+
+        // Show login error
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => errorDiv.style.display = 'none', 3000);
+        }
+
         // Logout
         function handleLogout() {
             if (confirm('Are you sure you want to logout?')) {
                 currentUser = null;
+                pendingTwoFAUser = null;
                 sessionStorage.removeItem('cestisAttendanceCurrentUser');
-                
+
                 document.getElementById('loginPage').style.display = 'flex';
                 document.getElementById('mainDashboard').style.display = 'none';
                 document.getElementById('loginUsername').value = '';
                 document.getElementById('loginPassword').value = '';
+                document.getElementById('loginStep1').style.display = 'block';
+                document.getElementById('loginStep2FA').style.display = 'none';
+                document.getElementById('backupCodeSection').style.display = 'none';
             }
         }
 
@@ -2533,6 +3044,7 @@
                 renderStudentsTable();
                 renderUsersTable();
                 populateSkillDropdowns();
+                render2FAStatus();
             } else {
                 document.getElementById('skillsTab').style.display = 'none';
                 document.getElementById('classManagementTab').style.display = 'none';
@@ -4073,17 +4585,24 @@
             users.forEach((user, index) => {
                 const row = tbody.insertRow();
                 const roleBadge = user.role === 'Admin' ? 'badge-danger' : 'badge-primary';
-                
+                const twoFAStatus = user.twoFactorEnabled ?
+                    '<span class="twofa-status-badge enabled">Enabled</span>' :
+                    '<span class="twofa-status-badge disabled">Disabled</span>';
+
                 row.innerHTML = `
                     <td>${user.username}</td>
                     <td>${user.fullName}</td>
                     <td><span class="badge ${roleBadge}">${user.role}</span></td>
+                    <td>${twoFAStatus}</td>
                     <td>${new Date(user.createdDate).toLocaleDateString()}</td>
                     <td>
-                        <button class="btn btn-danger" onclick="deleteUser(${index})" ${user.role === 'Admin' && users.filter(u => u.role === 'Admin').length === 1 ? 'disabled' : ''} style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">🗑️ Delete</button>
+                        <button class="btn btn-danger" onclick="deleteUser(${index})" ${user.role === 'Admin' && users.filter(u => u.role === 'Admin').length === 1 ? 'disabled' : ''} style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">Delete</button>
                     </td>
                 `;
             });
+
+            // Also render current user's 2FA status
+            render2FAStatus();
         }
 
         function deleteUser(index) {
@@ -4091,7 +4610,303 @@
                 users.splice(index, 1);
                 saveUsers();
                 renderUsersTable();
-                alert('✅ User deleted');
+                alert('User deleted');
+            }
+        }
+
+        // ============================================
+        // Two-Factor Authentication (2FA) Functions
+        // ============================================
+
+        // Temporary storage for 2FA setup
+        let pendingTwoFASecret = null;
+        let pendingBackupCodes = null;
+
+        // Generate a random base32 secret for TOTP
+        function generateTOTPSecret() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            let secret = '';
+            for (let i = 0; i < 32; i++) {
+                secret += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return secret;
+        }
+
+        // Generate TOTP code from secret (for verification)
+        function generateTOTPCode(secret) {
+            try {
+                const totp = new OTPAuth.TOTP({
+                    issuer: 'CESTIS Attendance',
+                    label: currentUser ? currentUser.username : 'User',
+                    algorithm: 'SHA1',
+                    digits: 6,
+                    period: 30,
+                    secret: secret
+                });
+                return totp.generate();
+            } catch (e) {
+                console.error('Error generating TOTP:', e);
+                return null;
+            }
+        }
+
+        // Verify TOTP code
+        function verifyTOTPCode(secret, code) {
+            try {
+                const totp = new OTPAuth.TOTP({
+                    issuer: 'CESTIS Attendance',
+                    label: 'User',
+                    algorithm: 'SHA1',
+                    digits: 6,
+                    period: 30,
+                    secret: secret
+                });
+                // Allow 1 period tolerance (30 seconds before/after)
+                const delta = totp.validate({ token: code, window: 1 });
+                return delta !== null;
+            } catch (e) {
+                console.error('Error verifying TOTP:', e);
+                return false;
+            }
+        }
+
+        // Generate TOTP URI for QR code
+        function generateTOTPUri(secret, username) {
+            const issuer = 'CESTIS%20Attendance';
+            const label = encodeURIComponent(username);
+            return `otpauth://totp/${issuer}:${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+        }
+
+        // Generate backup codes
+        function generateBackupCodes() {
+            const codes = [];
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude similar characters
+            for (let i = 0; i < 8; i++) {
+                let code = '';
+                for (let j = 0; j < 8; j++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                codes.push({ code: code, used: false });
+            }
+            return codes;
+        }
+
+        // Render current user's 2FA status
+        function render2FAStatus() {
+            const container = document.getElementById('current2FAStatus');
+            if (!container || !currentUser) return;
+
+            if (currentUser.twoFactorEnabled) {
+                const unusedCodes = currentUser.backupCodes ?
+                    currentUser.backupCodes.filter(bc => !bc.used).length : 0;
+
+                container.innerHTML = `
+                    <div class="twofa-success">
+                        <strong>Two-Factor Authentication is ENABLED</strong>
+                        <p style="margin-top: 0.5rem;">Your account is protected with Google Authenticator.</p>
+                        <p style="margin-top: 0.25rem; font-size: 0.85rem;">Backup codes remaining: ${unusedCodes}/8</p>
+                    </div>
+                    <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap;">
+                        <button class="btn btn-secondary twofa-setup-btn" onclick="showBackupCodes()">View Backup Codes</button>
+                        <button class="btn btn-warning twofa-setup-btn" onclick="regenerateBackupCodes()">Regenerate Backup Codes</button>
+                        <button class="btn btn-danger twofa-setup-btn" onclick="openTwoFADisable()">Disable 2FA</button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div style="background: var(--bg-tertiary); padding: var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4);">
+                        <strong>Two-Factor Authentication is DISABLED</strong>
+                        <p style="margin-top: 0.5rem; color: var(--text-secondary);">Add an extra layer of security to your account using Google Authenticator or any TOTP-compatible app.</p>
+                    </div>
+                    <button class="btn btn-success twofa-setup-btn" onclick="openTwoFASetup()">Enable 2FA</button>
+                `;
+            }
+        }
+
+        // Open 2FA setup modal
+        function openTwoFASetup() {
+            // Generate new secret
+            pendingTwoFASecret = generateTOTPSecret();
+
+            // Display secret key
+            document.getElementById('twofaSecretKey').textContent = pendingTwoFASecret.match(/.{1,4}/g).join(' ');
+
+            // Generate QR code
+            const qrContainer = document.getElementById('twofaQRCode');
+            qrContainer.innerHTML = '';
+            const uri = generateTOTPUri(pendingTwoFASecret, currentUser.username);
+
+            new QRCode(qrContainer, {
+                text: uri,
+                width: 200,
+                height: 200,
+                colorDark: '#1e3a5f',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            // Clear verification input
+            document.getElementById('twofaSetupCode').value = '';
+
+            // Show modal
+            document.getElementById('twofaSetupModal').style.display = 'flex';
+        }
+
+        // Close 2FA setup modal
+        function closeTwoFASetup() {
+            document.getElementById('twofaSetupModal').style.display = 'none';
+            pendingTwoFASecret = null;
+        }
+
+        // Confirm 2FA setup
+        function confirmTwoFASetup() {
+            const code = document.getElementById('twofaSetupCode').value.trim();
+
+            if (!code || code.length !== 6) {
+                alert('Please enter the 6-digit code from your authenticator app');
+                return;
+            }
+
+            if (!pendingTwoFASecret) {
+                alert('Setup session expired. Please try again.');
+                closeTwoFASetup();
+                return;
+            }
+
+            // Verify the code
+            if (verifyTOTPCode(pendingTwoFASecret, code)) {
+                // Generate backup codes
+                pendingBackupCodes = generateBackupCodes();
+
+                // Update user
+                const userIndex = users.findIndex(u => u.id === currentUser.id);
+                if (userIndex !== -1) {
+                    users[userIndex].twoFactorEnabled = true;
+                    users[userIndex].twoFactorSecret = pendingTwoFASecret;
+                    users[userIndex].backupCodes = pendingBackupCodes;
+                    saveUsers();
+                    currentUser = users[userIndex];
+                    sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(currentUser));
+                }
+
+                closeTwoFASetup();
+
+                // Show backup codes
+                showBackupCodesModal();
+
+                renderUsersTable();
+            } else {
+                alert('Invalid code. Please check your authenticator app and try again.');
+                document.getElementById('twofaSetupCode').value = '';
+                document.getElementById('twofaSetupCode').focus();
+            }
+        }
+
+        // Show backup codes modal (after setup or on demand)
+        function showBackupCodesModal() {
+            const container = document.getElementById('twofaBackupCodes');
+            const codes = pendingBackupCodes || currentUser.backupCodes || [];
+
+            container.innerHTML = codes.map(bc => `
+                <div class="twofa-backup-code ${bc.used ? 'used' : ''}">${bc.code}</div>
+            `).join('');
+
+            document.getElementById('twofaBackupModal').style.display = 'flex';
+        }
+
+        // Show existing backup codes
+        function showBackupCodes() {
+            pendingBackupCodes = null;
+            showBackupCodesModal();
+        }
+
+        // Close backup codes modal
+        function closeBackupCodesModal() {
+            document.getElementById('twofaBackupModal').style.display = 'none';
+            pendingBackupCodes = null;
+        }
+
+        // Copy backup codes to clipboard
+        function copyBackupCodes() {
+            const codes = pendingBackupCodes || currentUser.backupCodes || [];
+            const codesText = codes.map((bc, i) => `${i + 1}. ${bc.code}${bc.used ? ' (USED)' : ''}`).join('\n');
+            const fullText = `CESTIS Attendance - Backup Codes for ${currentUser.username}\n` +
+                           `Generated: ${new Date().toLocaleString()}\n\n` +
+                           `${codesText}\n\n` +
+                           `Keep these codes in a safe place. Each code can only be used once.`;
+
+            navigator.clipboard.writeText(fullText).then(() => {
+                alert('Backup codes copied to clipboard!');
+            }).catch(() => {
+                alert('Failed to copy. Please manually select and copy the codes.');
+            });
+        }
+
+        // Regenerate backup codes
+        function regenerateBackupCodes() {
+            if (!confirm('This will invalidate all existing backup codes. Continue?')) {
+                return;
+            }
+
+            pendingBackupCodes = generateBackupCodes();
+
+            const userIndex = users.findIndex(u => u.id === currentUser.id);
+            if (userIndex !== -1) {
+                users[userIndex].backupCodes = pendingBackupCodes;
+                saveUsers();
+                currentUser = users[userIndex];
+                sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(currentUser));
+            }
+
+            showBackupCodesModal();
+            render2FAStatus();
+        }
+
+        // Open disable 2FA modal
+        function openTwoFADisable() {
+            document.getElementById('twofaDisableCode').value = '';
+            document.getElementById('twofaDisableModal').style.display = 'flex';
+        }
+
+        // Close disable 2FA modal
+        function closeTwoFADisable() {
+            document.getElementById('twofaDisableModal').style.display = 'none';
+        }
+
+        // Confirm disable 2FA
+        function confirmTwoFADisable() {
+            const code = document.getElementById('twofaDisableCode').value.trim();
+
+            if (!code || code.length !== 6) {
+                alert('Please enter the 6-digit code from your authenticator app');
+                return;
+            }
+
+            if (!currentUser.twoFactorSecret) {
+                alert('2FA is not enabled for this account.');
+                closeTwoFADisable();
+                return;
+            }
+
+            // Verify the code
+            if (verifyTOTPCode(currentUser.twoFactorSecret, code)) {
+                const userIndex = users.findIndex(u => u.id === currentUser.id);
+                if (userIndex !== -1) {
+                    users[userIndex].twoFactorEnabled = false;
+                    users[userIndex].twoFactorSecret = null;
+                    users[userIndex].backupCodes = null;
+                    saveUsers();
+                    currentUser = users[userIndex];
+                    sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(currentUser));
+                }
+
+                closeTwoFADisable();
+                alert('Two-Factor Authentication has been disabled.');
+                renderUsersTable();
+            } else {
+                alert('Invalid code. Please check your authenticator app and try again.');
+                document.getElementById('twofaDisableCode').value = '';
+                document.getElementById('twofaDisableCode').focus();
             }
         }
 
@@ -4726,6 +5541,42 @@
             setTimeout(() => {
                 initGoogleAuth();
             }, 500);
+
+            // 2FA input event listeners
+            const twoFAInputs = ['login2FACode', 'twofaSetupCode', 'twofaDisableCode'];
+            twoFAInputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    // Only allow numeric input
+                    input.addEventListener('input', function(e) {
+                        this.value = this.value.replace(/[^0-9]/g, '');
+                    });
+
+                    // Handle Enter key
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inputId === 'login2FACode') verify2FALogin();
+                            else if (inputId === 'twofaSetupCode') confirmTwoFASetup();
+                            else if (inputId === 'twofaDisableCode') confirmTwoFADisable();
+                        }
+                    });
+                }
+            });
+
+            // Backup code input - allow alphanumeric, convert to uppercase
+            const backupCodeInput = document.getElementById('loginBackupCode');
+            if (backupCodeInput) {
+                backupCodeInput.addEventListener('input', function(e) {
+                    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                });
+                backupCodeInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        verifyBackupCodeLogin();
+                    }
+                });
+            }
         });
     </script>
 </body>
