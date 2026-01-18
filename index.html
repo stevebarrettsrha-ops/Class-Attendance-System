@@ -355,12 +355,12 @@
            Header
            ============================================ */
         .header {
-            background: var(--bg-secondary);
+            background: var(--primary);
             padding: var(--space-5) var(--space-6);
             box-shadow: var(--shadow-sm);
             margin-bottom: var(--space-6);
             border-radius: var(--radius-xl);
-            border: 1px solid var(--border-light);
+            border: 1px solid var(--primary-dark);
         }
 
         .header-top {
@@ -376,7 +376,7 @@
         }
 
         .header-title h1 {
-            color: var(--primary);
+            color: var(--text-inverse);
             font-size: 1.5rem;
             font-weight: 700;
             margin-bottom: var(--space-1);
@@ -384,7 +384,7 @@
         }
 
         .tagline {
-            color: var(--success);
+            color: var(--success-light);
             font-size: 0.875rem;
             font-weight: 600;
             text-transform: uppercase;
@@ -392,7 +392,7 @@
         }
 
         .subtitle {
-            color: var(--text-secondary);
+            color: rgba(255, 255, 255, 0.8);
             font-size: 0.875rem;
             margin-top: var(--space-1);
         }
@@ -1021,9 +1021,9 @@
             align-items: center;
             gap: var(--space-1);
             font-size: 0.7rem;
-            color: var(--text-secondary);
+            color: var(--text-primary);
             padding: var(--space-1) var(--space-2);
-            background: var(--bg-tertiary);
+            background: rgba(255, 255, 255, 0.9);
             border-radius: var(--radius-sm);
         }
 
@@ -1998,7 +1998,7 @@
                     </div>
 
                     <div style="display: flex; align-items: center; gap: var(--space-4);">
-                        <span id="currentUserDisplay" style="font-weight: 600; color: var(--primary); font-size: 0.875rem;"></span>
+                        <span id="currentUserDisplay" style="font-weight: 600; color: var(--text-inverse); font-size: 0.875rem;"></span>
 
                         <!-- Cloud Sync Controls -->
                         <div class="cloud-sync-container" id="cloudSyncContainer">
