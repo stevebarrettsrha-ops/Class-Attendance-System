@@ -1,0 +1,2586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CESTIS - Student Attendance Tracking System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-blue: #0D47A1;
+            --light-blue: #1565C0;
+            --soft-blue: #E3F2FD;
+            --light-green: #A8D5A5;
+            --medium-green: #66BB6A;
+            --dark-green: #1B5E20;
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #dee2e6;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --success: #28a745;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        body.dark-mode {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --border-color: #444444;
+            --soft-blue: #1e3a5f;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Login Page */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, #0D47A1 0%, #66BB6A 100%);
+        }
+
+        .login-box {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-title {
+            font-size: 28px;
+            color: #0D47A1;
+            margin-bottom: 10px;
+        }
+
+        .login-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .login-input:focus {
+            outline: none;
+            border-color: #0D47A1;
+            box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #0D47A1 0%, #66BB6A 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 71, 161, 0.4);
+        }
+
+        .login-error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            border-left: 4px solid #c33;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .header-title {
+            text-align: center;
+            flex: 1;
+        }
+
+        .header-title h1 {
+            color: var(--primary-blue);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .tagline {
+            color: var(--medium-green);
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .quick-actions h3 {
+            color: var(--primary-blue);
+            margin-bottom: 1rem;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .action-card {
+            background: var(--soft-blue);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .action-card:hover {
+            border-color: var(--primary-blue);
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .action-card-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-card-title {
+            font-weight: 600;
+            color: var(--primary-blue);
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border-color);
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 0.8rem 1.5rem;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab:hover {
+            color: var(--primary-blue);
+            background: var(--soft-blue);
+        }
+
+        .nav-tab.active {
+            color: var(--primary-blue);
+            border-bottom-color: var(--primary-blue);
+        }
+
+        /* Module */
+        .module {
+            display: none;
+        }
+
+        .module.active {
+            display: block;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--light-blue);
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Form Section */
+        .form-section {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.25rem;
+            font-size: 1rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        /* Table */
+        .table-container {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+            margin-bottom: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        th {
+            background: var(--primary-blue);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tr:hover {
+            background: var(--soft-blue);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-primary {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            color: var(--primary-blue);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .close-btn:hover {
+            color: var(--danger);
+        }
+
+        /* Upload Section */
+        .upload-section {
+            border: 2px dashed var(--border-color);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            background: var(--soft-blue);
+            margin-bottom: 1rem;
+        }
+
+        .upload-section input[type="file"] {
+            display: none;
+        }
+
+        .upload-label {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: var(--primary-blue);
+            color: white;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .upload-label:hover {
+            background: var(--light-blue);
+            transform: translateY(-2px);
+        }
+
+        /* Logout Button */
+        .logout-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle-btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .theme-toggle-btn:hover {
+            background: var(--light-blue);
+        }
+
+        /* Stats Card */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--light-green), var(--medium-green));
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            color: white;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        /* Search Box */
+        .search-box {
+            margin-bottom: 1rem;
+        }
+
+        .search-box input {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.8rem;
+            border: 2px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+        }
+
+        /* Alert */
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border-color: #17a2b8;
+            color: #0c5460;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-title h1 {
+                font-size: 1.3rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.5rem;
+            }
+        }
+
+        /* Time Input Style */
+        input[type="time"] {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.25rem;
+        }
+
+        /* Student Card */
+        .student-card {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .student-card:hover {
+            border-color: var(--primary-blue);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .student-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .student-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--primary-blue);
+        }
+
+        .student-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <h1 class="login-title">CESTIS Attendance</h1>
+                <p class="login-subtitle">Community Educational and Skills Training Institute</p>
+                <p class="login-subtitle">and Services Limited</p>
+                <p class="login-subtitle" style="margin-top: 1rem; font-weight: 600;">Student Attendance System</p>
+            </div>
+
+            <div class="login-error" id="loginError"></div>
+
+            <form onsubmit="handleLogin(event)">
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
+                </div>
+
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="login-btn">🔐 Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="mainDashboard" style="display: none;">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-top">
+                    <button class="logout-btn" onclick="handleLogout()">
+                        <span>🚪</span>
+                        <span>Logout</span>
+                    </button>
+
+                    <div class="header-title">
+                        <h1>CESTIS STUDENT ATTENDANCE SYSTEM</h1>
+                        <div class="tagline">EMPOWERING COMMUNITIES</div>
+                        <div class="subtitle">Track Student Attendance & Class Hours</div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <span id="currentUserDisplay" style="font-weight: 600; color: var(--primary-blue);"></span>
+                        <button class="theme-toggle-btn" onclick="toggleDarkMode()">
+                            <span id="themeIcon">🌙</span>
+                            <span id="themeText">Dark</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions (Teacher View) -->
+            <div id="teacherQuickActions" class="quick-actions" style="display: none;">
+                <h3>📋 Quick Actions</h3>
+                <div class="action-grid">
+                    <div class="action-card" onclick="switchModule('markAttendance')">
+                        <div class="action-card-icon">✅</div>
+                        <div class="action-card-title">Mark Attendance</div>
+                    </div>
+                    <div class="action-card" onclick="switchModule('todayAttendance')">
+                        <div class="action-card-icon">📅</div>
+                        <div class="action-card-title">Today's Records</div>
+                    </div>
+                    <div class="action-card" onclick="switchModule('viewHistory')">
+                        <div class="action-card-icon">📊</div>
+                        <div class="action-card-title">View History</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="switchModule('markAttendance')">✅ Mark Attendance</button>
+                <button class="nav-tab" onclick="switchModule('todayAttendance')">📅 Today's Attendance</button>
+                <button class="nav-tab" onclick="switchModule('viewHistory')">📊 Attendance History</button>
+                <button class="nav-tab" id="skillsTab" style="display: none;" onclick="switchModule('skills')">📚 Skills Management</button>
+                <button class="nav-tab" id="classManagementTab" style="display: none;" onclick="switchModule('classManagement')">👥 Class Management</button>
+                <button class="nav-tab" id="reportsTab" style="display: none;" onclick="switchModule('reports')">📈 Reports</button>
+                <button class="nav-tab" id="usersTab" style="display: none;" onclick="switchModule('users')">🔐 Users</button>
+            </div>
+
+            <!-- Mark Attendance Module -->
+            <div id="markAttendance" class="module active">
+                <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">✅ Mark Student Attendance</h2>
+                
+                <div class="form-section">
+                    <h3 style="margin-bottom: 1rem;">Select Class</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Skill Type / Class *</label>
+                            <select id="attendanceClassSelect" onchange="loadStudentsForAttendance()">
+                                <option value="">-- Select Class --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Date *</label>
+                            <input type="date" id="attendanceDate">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="attendanceStudentsList" style="display: none;">
+                    <h3 style="color: var(--primary-blue); margin-bottom: 1rem;">Students in Class</h3>
+                    <div id="studentsForAttendance"></div>
+                    <div style="text-align: center; margin-top: 2rem;">
+                        <button class="btn btn-success" onclick="saveAllAttendance()">💾 Save All Attendance Records</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today's Attendance Module -->
+            <div id="todayAttendance" class="module">
+                <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">📅 Today's Attendance Records</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Present</div>
+                        <div class="stat-value" id="todayPresentCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Absent</div>
+                        <div class="stat-value" id="todayAbsentCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Late</div>
+                        <div class="stat-value" id="todayLateCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Records</div>
+                        <div class="stat-value" id="todayTotalCount">0</div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-group">
+                        <label>Filter by Class</label>
+                        <select id="todayFilterClass" onchange="renderTodayAttendance()">
+                            <option value="">All Classes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Class/Skill</th>
+                                <th>Time In</th>
+                                <th>Time Out</th>
+                                <th>Break</th>
+                                <th>Status</th>
+                                <th>Net Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody id="todayAttendanceTable">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--text-secondary);">No attendance records for today</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- View History Module -->
+            <div id="viewHistory" class="module">
+                <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">📊 Attendance History</h2>
+                
+                <div class="form-section">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Student Name</label>
+                            <input type="text" id="historyStudentSearch" placeholder="Search student name...">
+                        </div>
+                        <div class="form-group">
+                            <label>Class/Skill</label>
+                            <select id="historyClassFilter">
+                                <option value="">All Classes</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>From Date</label>
+                            <input type="date" id="historyFromDate">
+                        </div>
+                        <div class="form-group">
+                            <label>To Date</label>
+                            <input type="date" id="historyToDate">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: flex-end;">
+                            <button class="btn btn-primary" onclick="filterHistory()">🔍 Search</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Student Name</th>
+                                <th>Class/Skill</th>
+                                <th>Time In</th>
+                                <th>Time Out</th>
+                                <th>Break (min)</th>
+                                <th>Status</th>
+                                <th>Net Hours</th>
+                                <th id="historyActionsHeader" style="display: none;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTable">
+                            <tr>
+                                <td colspan="9" style="text-align: center; color: var(--text-secondary);">Use filters to search attendance history</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Skills Management Module (Admin) -->
+            <div id="skills" class="module">
+                <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">📚 Skills Management (Admin Only)</h2>
+                
+                <div class="alert alert-info">
+                    <strong>ℹ️ Info:</strong> Define skill types/courses with detailed information. These skills will appear as dropdown options when marking attendance and adding students.
+                </div>
+
+                <!-- Add New Skill -->
+                <div class="form-section">
+                    <h3 style="margin-bottom: 1rem;">➕ Add New Skill Type</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Skill Name *</label>
+                            <input type="text" id="newSkillName" placeholder="e.g., Carpentry, Plumbing, Electrical">
+                        </div>
+                        <div class="form-group">
+                            <label>Skill Code</label>
+                            <input type="text" id="newSkillCode" placeholder="e.g., CARP-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Duration (Weeks)</label>
+                            <input type="number" id="newSkillDuration" placeholder="e.g., 12" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Instructor</label>
+                            <input type="text" id="newSkillInstructor" placeholder="Instructor name">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="newSkillDescription" rows="3" placeholder="Brief description of the skill/course"></textarea>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Start Time (Default)</label>
+                            <input type="time" id="newSkillStartTime" value="08:00">
+                        </div>
+                        <div class="form-group">
+                            <label>End Time (Default)</label>
+                            <input type="time" id="newSkillEndTime" value="16:00">
+                        </div>
+                        <div class="form-group">
+                            <label>Break Time (minutes)</label>
+                            <input type="number" id="newSkillBreakTime" value="30" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Students</label>
+                            <input type="number" id="newSkillMaxStudents" placeholder="e.g., 20" min="1">
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="addSkill()">➕ Add Skill Type</button>
+                </div>
+
+                <!-- Skills List -->
+                <div class="table-container">
+                    <h3 style="margin-bottom: 1rem;">All Skill Types</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Skill Code</th>
+                                <th>Skill Name</th>
+                                <th>Duration</th>
+                                <th>Instructor</th>
+                                <th>Schedule</th>
+                                <th>Max Students</th>
+                                <th>Current Enrolled</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="skillsTable">
+                            <tr>
+                                <td colspan="8" style="text-align: center; color: var(--text-secondary);">No skills defined yet</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Class Management Module (Admin) -->
+            <div id="classManagement" class="module">
+                <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">👥 Class Management</h2>
+                
+                <!-- Upload Enrollment Register -->
+                <div class="form-section">
+                    <h3 style="margin-bottom: 1rem;">📤 Upload Enrollment Register</h3>
+                    <div class="alert alert-info">
+                        <strong>ℹ️ Info:</strong> Upload an Excel file (.xlsx) containing student enrollment data. 
+                        Required columns: Student Name, Registration Number, Skill Type/Class
+                    </div>
+                    <div class="upload-section">
+                        <input type="file" id="enrollmentFileUpload" accept=".xlsx, .xls" onchange="handleEnrollmentUpload(event)">
+                        <label for="enrollmentFileUpload" class="upload-label">
+                            📁 Choose Excel File
+                        </label>
+                        <p style="margin-top: 1rem; color: var(--text-secondary);">
+                            Click to select enrollment register file
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Manual Student Entry -->
+                <div class="form-section">
+                    <h3 style="margin-bottom: 1rem;">➕ Add Student Manually</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Student Name *</label>
+                            <input type="text" id="newStudentName" placeholder="Full Name">
+                        </div>
+                        <div class="form-group">
+                            <label>Registration Number *</label>
+                            <input type="text" id="newStudentRegNo" placeholder="REG-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Skill Type / Class *</label>
+                            <select id="newStudentClass">
+                                <option value="">-- Select Skill --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Number</label>
+                            <input type="tel" id="newStudentContact" placeholder="+1234567890">
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="addStudentManually()">➕ Add Student</button>
+                </div>
+
+                <!-- Students List -->
+                <div class="table-container">
+                    <h3 style="margin-bottom: 1rem;">All Enrolled Students</h3>
+                    <div class="search-box">
+                        <input type="text" id="studentSearchBox" placeholder="🔍 Search students..." onkeyup="filterStudentsTable()">
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Registration No.</th>
+                                <th>Student Name</th>
+                                <th>Class/Skill</th>
+                                <th>Contact</th>
+                                <th>Enrollment Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentsTable">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-secondary);">No students enrolled yet</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Reports Module (Admin) -->
+            <div id="reports" class="module">
+                <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">📈 Attendance Reports</h2>
+                
+                <div class="form-section">
+                    <h3 style="margin-bottom: 1rem;">Generate Report</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Report Type</label>
+                            <select id="reportType">
+                                <option value="class">By Class</option>
+                                <option value="student">By Student</option>
+                                <option value="date">By Date Range</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Class/Skill</label>
+                            <select id="reportClassSelect">
+                                <option value="">All Classes</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>From Date</label>
+                            <input type="date" id="reportFromDate">
+                        </div>
+                        <div class="form-group">
+                            <label>To Date</label>
+                            <input type="date" id="reportToDate">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: flex-end;">
+                            <button class="btn btn-primary" onclick="generateReport()">📊 Generate Report</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="reportResults" style="display: none;">
+                    <div class="stats-grid" id="reportStats"></div>
+                    <div class="table-container">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>Report Results</h3>
+                            <button class="btn btn-success" onclick="exportReportToExcel()">📥 Export to Excel</button>
+                        </div>
+                        <table>
+                            <thead id="reportTableHead"></thead>
+                            <tbody id="reportTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Module (Admin) -->
+            <div id="users" class="module">
+                <h2 style="color: var(--primary-blue); margin-bottom: 1.5rem;">🔐 User Management</h2>
+                
+                <div class="form-section">
+                    <h3 style="margin-bottom: 1rem;">➕ Add New User</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Full Name *</label>
+                            <input type="text" id="newUserName">
+                        </div>
+                        <div class="form-group">
+                            <label>Username *</label>
+                            <input type="text" id="newUserUsername">
+                        </div>
+                        <div class="form-group">
+                            <label>Password *</label>
+                            <input type="password" id="newUserPassword">
+                        </div>
+                        <div class="form-group">
+                            <label>Role *</label>
+                            <select id="newUserRole">
+                                <option value="Teacher">Teacher</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="addUser()">➕ Add User</button>
+                </div>
+
+                <div class="table-container">
+                    <h3 style="margin-bottom: 1rem;">All Users</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Full Name</th>
+                                <th>Role</th>
+                                <th>Created Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Attendance Modal -->
+    <div id="editAttendanceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Edit Attendance Record</h2>
+                <button class="close-btn" onclick="closeEditAttendanceModal()">✖</button>
+            </div>
+
+            <div class="alert alert-warning">
+                <strong>⚠️ Warning:</strong> Editing attendance records should be done carefully and documented.
+            </div>
+
+            <div class="form-group">
+                <label>Student Name</label>
+                <input type="text" id="editStudentName" disabled style="background: #f0f0f0;">
+            </div>
+
+            <div class="form-group">
+                <label>Class/Skill</label>
+                <input type="text" id="editClass" disabled style="background: #f0f0f0;">
+            </div>
+
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="editDate">
+            </div>
+
+            <div class="form-group">
+                <label>Status</label>
+                <select id="editStatus">
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Late">Late</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Time In</label>
+                <input type="time" id="editTimeIn">
+            </div>
+
+            <div class="form-group">
+                <label>Time Out</label>
+                <input type="time" id="editTimeOut">
+            </div>
+
+            <div class="form-group">
+                <label>Break Time (minutes)</label>
+                <input type="number" id="editBreakTime" min="0" placeholder="0">
+            </div>
+
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="editNotes" rows="3"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn btn-success" onclick="saveAttendanceEdit()">💾 Save Changes</button>
+                <button class="btn btn-secondary" onclick="closeEditAttendanceModal()">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View/Edit Skill Modal -->
+    <div id="viewSkillModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📚 Skill Details</h2>
+                <button class="close-btn" onclick="closeViewSkillModal()">✖</button>
+            </div>
+
+            <div class="form-group">
+                <label>Skill Name *</label>
+                <input type="text" id="viewSkillName">
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Skill Code</label>
+                    <input type="text" id="viewSkillCode">
+                </div>
+                <div class="form-group">
+                    <label>Duration (Weeks)</label>
+                    <input type="number" id="viewSkillDuration" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Instructor</label>
+                    <input type="text" id="viewSkillInstructor">
+                </div>
+                <div class="form-group">
+                    <label>Max Students</label>
+                    <input type="number" id="viewSkillMaxStudents" min="1">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="viewSkillDescription" rows="3"></textarea>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Start Time (Default)</label>
+                    <input type="time" id="viewSkillStartTime">
+                </div>
+                <div class="form-group">
+                    <label>End Time (Default)</label>
+                    <input type="time" id="viewSkillEndTime">
+                </div>
+                <div class="form-group">
+                    <label>Break Time (minutes)</label>
+                    <input type="number" id="viewSkillBreakTime" min="0">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn btn-success" onclick="saveSkillEdit()">💾 Save Changes</button>
+                <button class="btn btn-secondary" onclick="closeViewSkillModal()">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Student Modal -->
+    <div id="editStudentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Edit Student Details</h2>
+                <button class="close-btn" onclick="closeEditStudentModal()">✖</button>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>ℹ️ Info:</strong> Editing student information will update all related attendance records.
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Student Name *</label>
+                    <input type="text" id="editStudentNameInput" placeholder="Full Name">
+                </div>
+                <div class="form-group">
+                    <label>Registration Number *</label>
+                    <input type="text" id="editStudentRegNo" placeholder="REG-001">
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Skill Type / Class *</label>
+                    <select id="editStudentClass">
+                        <option value="">-- Select Skill --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Contact Number</label>
+                    <input type="tel" id="editStudentContact" placeholder="+1234567890">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Enrollment Date</label>
+                <input type="date" id="editStudentEnrollmentDate">
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn btn-success" onclick="saveStudentEdit()">💾 Save Changes</button>
+                <button class="btn btn-secondary" onclick="closeEditStudentModal()">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Storage
+        let currentUser = null;
+        let users = [];
+        let students = [];
+        let attendanceRecords = [];
+        let skills = [];
+        let editingAttendanceIndex = null;
+        let editingSkillIndex = null;
+        let editingStudentIndex = null;
+
+        // Initialize default data
+        function initializeDefaultData() {
+            const savedUsers = localStorage.getItem('cestisAttendanceUsers');
+            if (!savedUsers) {
+                users = [{
+                    id: 'USER001',
+                    username: 'admin',
+                    password: 'admin123',
+                    fullName: 'System Administrator',
+                    role: 'Admin',
+                    createdDate: new Date().toISOString()
+                }, {
+                    id: 'USER002',
+                    username: 'teacher',
+                    password: 'teacher123',
+                    fullName: 'Demo Teacher',
+                    role: 'Teacher',
+                    createdDate: new Date().toISOString()
+                }];
+                saveUsers();
+            } else {
+                users = JSON.parse(savedUsers);
+            }
+
+            const savedStudents = localStorage.getItem('cestisStudents');
+            if (savedStudents) {
+                students = JSON.parse(savedStudents);
+            }
+
+            const savedAttendance = localStorage.getItem('cestisAttendanceRecords');
+            if (savedAttendance) {
+                attendanceRecords = JSON.parse(savedAttendance);
+            }
+
+            const savedSkills = localStorage.getItem('cestisSkills');
+            if (!savedSkills) {
+                // Initialize with default skills
+                skills = [
+                    {
+                        id: 'SKILL001',
+                        name: 'Carpentry',
+                        code: 'CARP-001',
+                        duration: 12,
+                        instructor: 'Mr. Johnson',
+                        description: 'Basic to advanced carpentry skills including woodworking, furniture making, and construction',
+                        startTime: '08:00',
+                        endTime: '16:00',
+                        breakTime: 30,
+                        maxStudents: 20,
+                        createdDate: new Date().toISOString()
+                    },
+                    {
+                        id: 'SKILL002',
+                        name: 'Plumbing',
+                        code: 'PLUM-001',
+                        duration: 10,
+                        instructor: 'Ms. Williams',
+                        description: 'Residential and commercial plumbing, pipe fitting, and maintenance',
+                        startTime: '08:00',
+                        endTime: '16:00',
+                        breakTime: 30,
+                        maxStudents: 15,
+                        createdDate: new Date().toISOString()
+                    },
+                    {
+                        id: 'SKILL003',
+                        name: 'Electrical Installation',
+                        code: 'ELEC-001',
+                        duration: 14,
+                        instructor: 'Mr. Brown',
+                        description: 'Electrical wiring, installation, and repair for residential and commercial buildings',
+                        startTime: '08:00',
+                        endTime: '16:00',
+                        breakTime: 30,
+                        maxStudents: 18,
+                        createdDate: new Date().toISOString()
+                    }
+                ];
+                saveSkills();
+            } else {
+                skills = JSON.parse(savedSkills);
+            }
+        }
+
+        // Save functions
+        function saveUsers() {
+            localStorage.setItem('cestisAttendanceUsers', JSON.stringify(users));
+        }
+
+        function saveStudents() {
+            localStorage.setItem('cestisStudents', JSON.stringify(students));
+        }
+
+        function saveAttendanceRecords() {
+            localStorage.setItem('cestisAttendanceRecords', JSON.stringify(attendanceRecords));
+        }
+
+        function saveSkills() {
+            localStorage.setItem('cestisSkills', JSON.stringify(skills));
+        }
+
+        // Login
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(user));
+                
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainDashboard').style.display = 'block';
+                document.getElementById('currentUserDisplay').textContent = `👤 ${user.fullName} (${user.role})`;
+                
+                updateUIForRole();
+                populateClassDropdowns();
+                renderTodayAttendance();
+                
+            } else {
+                const errorDiv = document.getElementById('loginError');
+                errorDiv.textContent = '❌ Invalid credentials';
+                errorDiv.style.display = 'block';
+                setTimeout(() => errorDiv.style.display = 'none', 3000);
+            }
+        }
+
+        // Logout
+        function handleLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                currentUser = null;
+                sessionStorage.removeItem('cestisAttendanceCurrentUser');
+                
+                document.getElementById('loginPage').style.display = 'flex';
+                document.getElementById('mainDashboard').style.display = 'none';
+                document.getElementById('loginUsername').value = '';
+                document.getElementById('loginPassword').value = '';
+            }
+        }
+
+        // Update UI based on role
+        function updateUIForRole() {
+            if (currentUser.role === 'Admin') {
+                document.getElementById('skillsTab').style.display = 'block';
+                document.getElementById('classManagementTab').style.display = 'block';
+                document.getElementById('reportsTab').style.display = 'block';
+                document.getElementById('usersTab').style.display = 'block';
+                document.getElementById('historyActionsHeader').style.display = 'table-cell';
+                renderSkillsTable();
+                renderStudentsTable();
+                renderUsersTable();
+                populateSkillDropdowns();
+            } else {
+                document.getElementById('skillsTab').style.display = 'none';
+                document.getElementById('classManagementTab').style.display = 'none';
+                document.getElementById('reportsTab').style.display = 'none';
+                document.getElementById('usersTab').style.display = 'none';
+                document.getElementById('historyActionsHeader').style.display = 'none';
+                document.getElementById('teacherQuickActions').style.display = 'block';
+                populateSkillDropdowns();
+            }
+        }
+
+        // Populate skill/class dropdowns
+        function populateSkillDropdowns() {
+            const dropdowns = [
+                'attendanceClassSelect',
+                'todayFilterClass',
+                'historyClassFilter',
+                'reportClassSelect',
+                'newStudentClass'
+            ];
+
+            dropdowns.forEach(id => {
+                const select = document.getElementById(id);
+                const currentValue = select.value;
+                
+                if (id === 'attendanceClassSelect' || id === 'newStudentClass') {
+                    select.innerHTML = '<option value="">-- Select Skill --</option>';
+                } else {
+                    select.innerHTML = '<option value="">All Classes</option>';
+                }
+                
+                skills.forEach(skill => {
+                    const option = document.createElement('option');
+                    option.value = skill.name;
+                    option.textContent = `${skill.name} (${skill.code})`;
+                    option.dataset.skillId = skill.id;
+                    select.appendChild(option);
+                });
+                
+                if (currentValue) select.value = currentValue;
+            });
+        }
+
+        function populateClassDropdowns() {
+            populateSkillDropdowns();
+        }
+
+        // Handle Enrollment Upload
+        function handleEnrollmentUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                    let imported = 0;
+                    let skipped = 0;
+                    jsonData.forEach(row => {
+                        // Try different possible column names
+                        const name = row['Student Name'] || row['Name'] || row['STUDENT NAME'] || row['name'];
+                        const regNo = row['Registration Number'] || row['Reg No'] || row['RegNo'] || row['REGISTRATION NUMBER'] || row['ID'];
+                        const skillType = row['Skill Type'] || row['Class'] || row['SKILL TYPE'] || row['class'] || row['Course'];
+                        const contact = row['Contact'] || row['Phone'] || row['CONTACT'] || row['phone'] || '';
+
+                        if (name && regNo && skillType) {
+                            // Check if skill exists
+                            const skillExists = skills.find(s => s.name.toLowerCase() === skillType.toLowerCase());
+                            if (!skillExists) {
+                                console.warn(`Skill "${skillType}" not found in system. Skipping student: ${name}`);
+                                skipped++;
+                                return;
+                            }
+
+                            // Check if student already exists
+                            const exists = students.find(s => s.regNo === String(regNo));
+                            if (!exists) {
+                                students.push({
+                                    id: 'STU' + Date.now() + Math.random().toString(36).substr(2, 9),
+                                    name: name,
+                                    regNo: String(regNo),
+                                    class: skillExists.name, // Use the skill name from system
+                                    contact: contact,
+                                    enrollmentDate: new Date().toISOString()
+                                });
+                                imported++;
+                            }
+                        }
+                    });
+
+                    saveStudents();
+                    renderStudentsTable();
+                    
+                    let message = `✅ Successfully imported ${imported} students!`;
+                    if (skipped > 0) {
+                        message += `\n\n⚠️ Skipped ${skipped} students due to invalid or missing skill types. Please ensure skill types in the Excel file match those defined in Skills Management.`;
+                    }
+                    alert(message);
+                    event.target.value = ''; // Reset file input
+                    
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    alert('❌ Error reading file. Please ensure it\'s a valid Excel file with the correct format.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Add Student Manually
+        function addStudentManually() {
+            const name = document.getElementById('newStudentName').value.trim();
+            const regNo = document.getElementById('newStudentRegNo').value.trim();
+            const skillClass = document.getElementById('newStudentClass').value;
+            const contact = document.getElementById('newStudentContact').value.trim();
+
+            if (!name || !regNo || !skillClass) {
+                alert('❌ Please fill in all required fields (Name, Reg No, Skill)');
+                return;
+            }
+
+            // Check if registration number already exists
+            if (students.find(s => s.regNo === regNo)) {
+                alert('❌ Registration number already exists');
+                return;
+            }
+
+            students.push({
+                id: 'STU' + Date.now() + Math.random().toString(36).substr(2, 9),
+                name: name,
+                regNo: regNo,
+                class: skillClass,
+                contact: contact,
+                enrollmentDate: new Date().toISOString()
+            });
+
+            saveStudents();
+            renderStudentsTable();
+
+            // Clear form
+            document.getElementById('newStudentName').value = '';
+            document.getElementById('newStudentRegNo').value = '';
+            document.getElementById('newStudentClass').value = '';
+            document.getElementById('newStudentContact').value = '';
+
+            alert('✅ Student added successfully!');
+        }
+
+        // Render Students Table
+        function renderStudentsTable() {
+            const tbody = document.getElementById('studentsTable');
+            tbody.innerHTML = '';
+
+            if (students.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">No students enrolled yet</td></tr>';
+                return;
+            }
+
+            students.forEach((student, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${student.regNo}</td>
+                    <td>${student.name}</td>
+                    <td><span class="badge badge-primary">${student.class}</span></td>
+                    <td>${student.contact || 'N/A'}</td>
+                    <td>${new Date(student.enrollmentDate).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-primary" onclick="editStudent(${index})" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-right: 0.5rem;">✏️ Edit</button>
+                        <button class="btn btn-danger" onclick="deleteStudent(${index})" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">🗑️ Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        // Delete Student
+        function deleteStudent(index) {
+            if (confirm(`Are you sure you want to delete ${students[index].name}?`)) {
+                students.splice(index, 1);
+                saveStudents();
+                renderStudentsTable();
+                alert('✅ Student deleted');
+            }
+        }
+
+        // Edit Student Functions
+        function editStudent(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Admin access required');
+                return;
+            }
+
+            editingStudentIndex = index;
+            const student = students[index];
+
+            // Populate edit form
+            document.getElementById('editStudentNameInput').value = student.name;
+            document.getElementById('editStudentRegNo').value = student.regNo;
+            document.getElementById('editStudentContact').value = student.contact || '';
+            
+            // Populate enrollment date
+            const enrollDate = new Date(student.enrollmentDate);
+            const enrollDateStr = enrollDate.toISOString().split('T')[0];
+            document.getElementById('editStudentEnrollmentDate').value = enrollDateStr;
+
+            // Populate skill dropdown in modal
+            const editSkillSelect = document.getElementById('editStudentClass');
+            editSkillSelect.innerHTML = '<option value="">-- Select Skill --</option>';
+            skills.forEach(skill => {
+                const option = document.createElement('option');
+                option.value = skill.name;
+                option.textContent = `${skill.name} (${skill.code})`;
+                if (skill.name === student.class) {
+                    option.selected = true;
+                }
+                editSkillSelect.appendChild(option);
+            });
+
+            document.getElementById('editStudentModal').classList.add('active');
+        }
+
+        function closeEditStudentModal() {
+            document.getElementById('editStudentModal').classList.remove('active');
+            editingStudentIndex = null;
+        }
+
+        function saveStudentEdit() {
+            if (editingStudentIndex === null) return;
+
+            const student = students[editingStudentIndex];
+            const oldName = student.name;
+            const oldRegNo = student.regNo;
+            const oldClass = student.class;
+
+            const newName = document.getElementById('editStudentNameInput').value.trim();
+            const newRegNo = document.getElementById('editStudentRegNo').value.trim();
+            const newClass = document.getElementById('editStudentClass').value;
+            const newContact = document.getElementById('editStudentContact').value.trim();
+            const newEnrollDate = document.getElementById('editStudentEnrollmentDate').value;
+
+            if (!newName || !newRegNo || !newClass) {
+                alert('❌ Please fill in all required fields (Name, Reg No, Skill)');
+                return;
+            }
+
+            // Check if registration number conflicts with another student
+            const conflict = students.find((s, i) => 
+                i !== editingStudentIndex && s.regNo === newRegNo
+            );
+            if (conflict) {
+                alert('❌ Registration number already exists for another student');
+                return;
+            }
+
+            // Update student
+            student.name = newName;
+            student.regNo = newRegNo;
+            student.class = newClass;
+            student.contact = newContact;
+            if (newEnrollDate) {
+                student.enrollmentDate = new Date(newEnrollDate).toISOString();
+            }
+
+            // Update all attendance records if name, regNo, or class changed
+            if (oldName !== newName || oldRegNo !== newRegNo || oldClass !== newClass) {
+                attendanceRecords.forEach(record => {
+                    if (record.studentId === student.id) {
+                        record.studentName = newName;
+                        record.regNo = newRegNo;
+                        record.class = newClass;
+                    }
+                });
+                saveAttendanceRecords();
+            }
+
+            saveStudents();
+            closeEditStudentModal();
+            renderStudentsTable();
+
+            alert('✅ Student updated successfully!');
+        }
+
+        // Skills Management Functions
+        function addSkill() {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Admin access required');
+                return;
+            }
+
+            const name = document.getElementById('newSkillName').value.trim();
+            const code = document.getElementById('newSkillCode').value.trim();
+            const duration = parseInt(document.getElementById('newSkillDuration').value);
+            const instructor = document.getElementById('newSkillInstructor').value.trim();
+            const description = document.getElementById('newSkillDescription').value.trim();
+            const startTime = document.getElementById('newSkillStartTime').value;
+            const endTime = document.getElementById('newSkillEndTime').value;
+            const breakTime = parseInt(document.getElementById('newSkillBreakTime').value) || 0;
+            const maxStudents = parseInt(document.getElementById('newSkillMaxStudents').value);
+
+            if (!name) {
+                alert('❌ Skill name is required');
+                return;
+            }
+
+            // Check if skill name already exists
+            if (skills.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+                alert('❌ A skill with this name already exists');
+                return;
+            }
+
+            skills.push({
+                id: 'SKILL' + Date.now(),
+                name: name,
+                code: code,
+                duration: duration,
+                instructor: instructor,
+                description: description,
+                startTime: startTime,
+                endTime: endTime,
+                breakTime: breakTime,
+                maxStudents: maxStudents,
+                createdDate: new Date().toISOString()
+            });
+
+            saveSkills();
+            renderSkillsTable();
+            populateSkillDropdowns();
+
+            // Clear form
+            document.getElementById('newSkillName').value = '';
+            document.getElementById('newSkillCode').value = '';
+            document.getElementById('newSkillDuration').value = '';
+            document.getElementById('newSkillInstructor').value = '';
+            document.getElementById('newSkillDescription').value = '';
+            document.getElementById('newSkillStartTime').value = '08:00';
+            document.getElementById('newSkillEndTime').value = '16:00';
+            document.getElementById('newSkillBreakTime').value = '30';
+            document.getElementById('newSkillMaxStudents').value = '';
+
+            alert('✅ Skill type added successfully!');
+        }
+
+        function renderSkillsTable() {
+            const tbody = document.getElementById('skillsTable');
+            tbody.innerHTML = '';
+
+            if (skills.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">No skills defined yet</td></tr>';
+                return;
+            }
+
+            skills.forEach((skill, index) => {
+                const enrolledCount = students.filter(s => s.class === skill.name).length;
+                const schedule = `${skill.startTime || 'N/A'} - ${skill.endTime || 'N/A'}`;
+
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${skill.code || 'N/A'}</td>
+                    <td><strong>${skill.name}</strong></td>
+                    <td>${skill.duration ? skill.duration + ' weeks' : 'N/A'}</td>
+                    <td>${skill.instructor || 'N/A'}</td>
+                    <td>${schedule}<br><small style="color: var(--text-secondary);">Break: ${skill.breakTime || 0} min</small></td>
+                    <td>${skill.maxStudents || 'Unlimited'}</td>
+                    <td><span class="badge badge-primary">${enrolledCount}</span></td>
+                    <td>
+                        <button class="btn btn-primary" onclick="editSkill(${index})" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-right: 0.5rem;">✏️ Edit</button>
+                        <button class="btn btn-danger" onclick="deleteSkill(${index})" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">🗑️ Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        function editSkill(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Admin access required');
+                return;
+            }
+
+            editingSkillIndex = index;
+            const skill = skills[index];
+
+            document.getElementById('viewSkillName').value = skill.name;
+            document.getElementById('viewSkillCode').value = skill.code || '';
+            document.getElementById('viewSkillDuration').value = skill.duration || '';
+            document.getElementById('viewSkillInstructor').value = skill.instructor || '';
+            document.getElementById('viewSkillDescription').value = skill.description || '';
+            document.getElementById('viewSkillStartTime').value = skill.startTime || '08:00';
+            document.getElementById('viewSkillEndTime').value = skill.endTime || '16:00';
+            document.getElementById('viewSkillBreakTime').value = skill.breakTime || 0;
+            document.getElementById('viewSkillMaxStudents').value = skill.maxStudents || '';
+
+            document.getElementById('viewSkillModal').classList.add('active');
+        }
+
+        function closeViewSkillModal() {
+            document.getElementById('viewSkillModal').classList.remove('active');
+            editingSkillIndex = null;
+        }
+
+        function saveSkillEdit() {
+            if (editingSkillIndex === null) return;
+
+            const skill = skills[editingSkillIndex];
+            const oldName = skill.name;
+            const newName = document.getElementById('viewSkillName').value.trim();
+
+            if (!newName) {
+                alert('❌ Skill name is required');
+                return;
+            }
+
+            // Check if new name conflicts with another skill
+            const conflict = skills.find((s, i) => 
+                i !== editingSkillIndex && s.name.toLowerCase() === newName.toLowerCase()
+            );
+            if (conflict) {
+                alert('❌ A skill with this name already exists');
+                return;
+            }
+
+            // Update skill
+            skill.name = newName;
+            skill.code = document.getElementById('viewSkillCode').value.trim();
+            skill.duration = parseInt(document.getElementById('viewSkillDuration').value) || null;
+            skill.instructor = document.getElementById('viewSkillInstructor').value.trim();
+            skill.description = document.getElementById('viewSkillDescription').value.trim();
+            skill.startTime = document.getElementById('viewSkillStartTime').value;
+            skill.endTime = document.getElementById('viewSkillEndTime').value;
+            skill.breakTime = parseInt(document.getElementById('viewSkillBreakTime').value) || 0;
+            skill.maxStudents = parseInt(document.getElementById('viewSkillMaxStudents').value) || null;
+
+            // Update all students with old skill name to new name
+            if (oldName !== newName) {
+                students.forEach(student => {
+                    if (student.class === oldName) {
+                        student.class = newName;
+                    }
+                });
+                saveStudents();
+
+                // Update attendance records
+                attendanceRecords.forEach(record => {
+                    if (record.class === oldName) {
+                        record.class = newName;
+                    }
+                });
+                saveAttendanceRecords();
+            }
+
+            saveSkills();
+            closeViewSkillModal();
+            renderSkillsTable();
+            populateSkillDropdowns();
+            renderStudentsTable();
+
+            alert('✅ Skill updated successfully!');
+        }
+
+        function deleteSkill(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Admin access required');
+                return;
+            }
+
+            const skill = skills[index];
+            const enrolledCount = students.filter(s => s.class === skill.name).length;
+
+            if (enrolledCount > 0) {
+                if (!confirm(`⚠️ Warning: ${enrolledCount} student(s) are enrolled in "${skill.name}". Deleting this skill will not delete the students, but they will have an invalid skill type. Are you sure you want to continue?`)) {
+                    return;
+                }
+            }
+
+            if (confirm(`Are you sure you want to delete the skill "${skill.name}"?`)) {
+                skills.splice(index, 1);
+                saveSkills();
+                renderSkillsTable();
+                populateSkillDropdowns();
+                alert('✅ Skill deleted');
+            }
+        }
+
+        // Filter Students Table
+        function filterStudentsTable() {
+            const searchTerm = document.getElementById('studentSearchBox').value.toLowerCase();
+            const rows = document.querySelectorAll('#studentsTable tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }
+
+        // Load Students for Attendance Marking
+        function loadStudentsForAttendance() {
+            const selectedClass = document.getElementById('attendanceClassSelect').value;
+            const date = document.getElementById('attendanceDate').value;
+
+            if (!selectedClass || !date) {
+                document.getElementById('attendanceStudentsList').style.display = 'none';
+                return;
+            }
+
+            const classStudents = students.filter(s => s.class === selectedClass);
+
+            if (classStudents.length === 0) {
+                alert('No students found in this class');
+                return;
+            }
+
+            // Get skill data for default times
+            const skill = skills.find(s => s.name === selectedClass);
+            const defaultStartTime = skill ? skill.startTime : '08:00';
+            const defaultEndTime = skill ? skill.endTime : '16:00';
+            const defaultBreakTime = skill ? skill.breakTime : 30;
+
+            const container = document.getElementById('studentsForAttendance');
+            container.innerHTML = '';
+
+            classStudents.forEach(student => {
+                // Check if attendance already exists for this student on this date
+                const existingAttendance = attendanceRecords.find(
+                    a => a.studentId === student.id && a.date === date
+                );
+
+                const card = document.createElement('div');
+                card.className = 'student-card';
+                card.innerHTML = `
+                    <div class="student-card-header">
+                        <div class="student-name">${student.name}</div>
+                        <div><span class="badge badge-info">${student.regNo}</span></div>
+                    </div>
+                    <div class="student-info">
+                        <div><strong>Class:</strong> ${student.class}</div>
+                    </div>
+                    <div style="margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem;">
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem;">Status</label>
+                            <select class="attendance-status" data-student-id="${student.id}" style="padding: 0.4rem;">
+                                <option value="Present" ${existingAttendance && existingAttendance.status === 'Present' ? 'selected' : ''}>Present</option>
+                                <option value="Absent" ${existingAttendance && existingAttendance.status === 'Absent' ? 'selected' : ''}>Absent</option>
+                                <option value="Late" ${existingAttendance && existingAttendance.status === 'Late' ? 'selected' : ''}>Late</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem;">Time In</label>
+                            <input type="time" class="attendance-time-in" data-student-id="${student.id}" value="${existingAttendance ? existingAttendance.timeIn : defaultStartTime}" style="padding: 0.4rem;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem;">Time Out</label>
+                            <input type="time" class="attendance-time-out" data-student-id="${student.id}" value="${existingAttendance ? existingAttendance.timeOut : defaultEndTime}" style="padding: 0.4rem;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.85rem;">Break (min)</label>
+                            <input type="number" class="attendance-break" data-student-id="${student.id}" value="${existingAttendance ? existingAttendance.breakTime : defaultBreakTime}" min="0" placeholder="0" style="padding: 0.4rem;">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 0.5rem;">
+                        <label style="font-size: 0.85rem;">Notes (optional)</label>
+                        <textarea class="attendance-notes" data-student-id="${student.id}" rows="2" placeholder="Add any notes..." style="padding: 0.4rem;">${existingAttendance ? existingAttendance.notes || '' : ''}</textarea>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('attendanceStudentsList').style.display = 'block';
+        }
+
+        // Save All Attendance
+        function saveAllAttendance() {
+            const selectedClass = document.getElementById('attendanceClassSelect').value;
+            const date = document.getElementById('attendanceDate').value;
+
+            if (!selectedClass || !date) {
+                alert('Please select class and date');
+                return;
+            }
+
+            const statusInputs = document.querySelectorAll('.attendance-status');
+            let savedCount = 0;
+
+            statusInputs.forEach(input => {
+                const studentId = input.dataset.studentId;
+                const student = students.find(s => s.id === studentId);
+                
+                const status = input.value;
+                const timeIn = document.querySelector(`.attendance-time-in[data-student-id="${studentId}"]`).value;
+                const timeOut = document.querySelector(`.attendance-time-out[data-student-id="${studentId}"]`).value;
+                const breakTime = parseInt(document.querySelector(`.attendance-break[data-student-id="${studentId}"]`).value) || 0;
+                const notes = document.querySelector(`.attendance-notes[data-student-id="${studentId}"]`).value;
+
+                // Remove existing attendance for this student on this date
+                attendanceRecords = attendanceRecords.filter(
+                    a => !(a.studentId === studentId && a.date === date)
+                );
+
+                // Add new attendance record
+                attendanceRecords.push({
+                    id: 'ATT' + Date.now() + Math.random().toString(36).substr(2, 9),
+                    studentId: studentId,
+                    studentName: student.name,
+                    regNo: student.regNo,
+                    class: student.class,
+                    date: date,
+                    status: status,
+                    timeIn: timeIn,
+                    timeOut: timeOut,
+                    breakTime: breakTime,
+                    notes: notes,
+                    recordedBy: currentUser.fullName,
+                    recordedAt: new Date().toISOString()
+                });
+
+                savedCount++;
+            });
+
+            saveAttendanceRecords();
+            renderTodayAttendance();
+            
+            alert(`✅ Attendance saved for ${savedCount} students!`);
+            
+            // Clear the form
+            document.getElementById('attendanceClassSelect').value = '';
+            document.getElementById('attendanceStudentsList').style.display = 'none';
+        }
+
+        // Render Today's Attendance
+        function renderTodayAttendance() {
+            const today = new Date().toISOString().split('T')[0];
+            const filterClass = document.getElementById('todayFilterClass').value;
+
+            let todayRecords = attendanceRecords.filter(a => a.date === today);
+            
+            if (filterClass) {
+                todayRecords = todayRecords.filter(a => a.class === filterClass);
+            }
+
+            // Update stats
+            const presentCount = todayRecords.filter(a => a.status === 'Present').length;
+            const absentCount = todayRecords.filter(a => a.status === 'Absent').length;
+            const lateCount = todayRecords.filter(a => a.status === 'Late').length;
+
+            document.getElementById('todayPresentCount').textContent = presentCount;
+            document.getElementById('todayAbsentCount').textContent = absentCount;
+            document.getElementById('todayLateCount').textContent = lateCount;
+            document.getElementById('todayTotalCount').textContent = todayRecords.length;
+
+            // Render table
+            const tbody = document.getElementById('todayAttendanceTable');
+            tbody.innerHTML = '';
+
+            if (todayRecords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">No attendance records for today</td></tr>';
+                return;
+            }
+
+            todayRecords.forEach(record => {
+                const netHours = calculateNetHours(record.timeIn, record.timeOut, record.breakTime);
+                const statusBadge = getStatusBadge(record.status);
+
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${record.studentName}</td>
+                    <td><span class="badge badge-primary">${record.class}</span></td>
+                    <td>${record.timeIn || 'N/A'}</td>
+                    <td>${record.timeOut || 'N/A'}</td>
+                    <td>${record.breakTime} min</td>
+                    <td>${statusBadge}</td>
+                    <td><strong>${netHours}</strong></td>
+                `;
+            });
+        }
+
+        // Filter History
+        function filterHistory() {
+            const studentSearch = document.getElementById('historyStudentSearch').value.toLowerCase();
+            const classFilter = document.getElementById('historyClassFilter').value;
+            const fromDate = document.getElementById('historyFromDate').value;
+            const toDate = document.getElementById('historyToDate').value;
+
+            let filtered = attendanceRecords;
+
+            if (studentSearch) {
+                filtered = filtered.filter(a => a.studentName.toLowerCase().includes(studentSearch));
+            }
+
+            if (classFilter) {
+                filtered = filtered.filter(a => a.class === classFilter);
+            }
+
+            if (fromDate) {
+                filtered = filtered.filter(a => a.date >= fromDate);
+            }
+
+            if (toDate) {
+                filtered = filtered.filter(a => a.date <= toDate);
+            }
+
+            // Sort by date descending
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            const tbody = document.getElementById('historyTable');
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">No records found</td></tr>';
+                return;
+            }
+
+            filtered.forEach((record, index) => {
+                const actualIndex = attendanceRecords.findIndex(a => a.id === record.id);
+                const netHours = calculateNetHours(record.timeIn, record.timeOut, record.breakTime);
+                const statusBadge = getStatusBadge(record.status);
+
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${new Date(record.date).toLocaleDateString()}</td>
+                    <td>${record.studentName}</td>
+                    <td><span class="badge badge-primary">${record.class}</span></td>
+                    <td>${record.timeIn || 'N/A'}</td>
+                    <td>${record.timeOut || 'N/A'}</td>
+                    <td>${record.breakTime}</td>
+                    <td>${statusBadge}</td>
+                    <td><strong>${netHours}</strong></td>
+                    <td ${currentUser.role !== 'Admin' ? 'style="display: none;"' : ''}>
+                        <button class="btn btn-primary" onclick="openEditAttendanceModal(${actualIndex})" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-right: 0.5rem;">✏️ Edit</button>
+                        <button class="btn btn-danger" onclick="deleteAttendanceRecord(${actualIndex})" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">🗑️ Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        // Edit Attendance Modal Functions
+        function openEditAttendanceModal(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Admin access required');
+                return;
+            }
+
+            editingAttendanceIndex = index;
+            const record = attendanceRecords[index];
+
+            document.getElementById('editStudentName').value = record.studentName;
+            document.getElementById('editClass').value = record.class;
+            document.getElementById('editDate').value = record.date;
+            document.getElementById('editStatus').value = record.status;
+            document.getElementById('editTimeIn').value = record.timeIn;
+            document.getElementById('editTimeOut').value = record.timeOut;
+            document.getElementById('editBreakTime').value = record.breakTime;
+            document.getElementById('editNotes').value = record.notes || '';
+
+            document.getElementById('editAttendanceModal').classList.add('active');
+        }
+
+        function closeEditAttendanceModal() {
+            document.getElementById('editAttendanceModal').classList.remove('active');
+            editingAttendanceIndex = null;
+        }
+
+        function saveAttendanceEdit() {
+            if (editingAttendanceIndex === null) return;
+
+            const record = attendanceRecords[editingAttendanceIndex];
+            
+            record.date = document.getElementById('editDate').value;
+            record.status = document.getElementById('editStatus').value;
+            record.timeIn = document.getElementById('editTimeIn').value;
+            record.timeOut = document.getElementById('editTimeOut').value;
+            record.breakTime = parseInt(document.getElementById('editBreakTime').value) || 0;
+            record.notes = document.getElementById('editNotes').value;
+
+            saveAttendanceRecords();
+            closeEditAttendanceModal();
+            filterHistory();
+            renderTodayAttendance();
+
+            alert('✅ Attendance record updated successfully!');
+        }
+
+        function deleteAttendanceRecord(index) {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Admin access required');
+                return;
+            }
+
+            const record = attendanceRecords[index];
+            
+            if (confirm(`Are you sure you want to delete the attendance record for ${record.studentName} on ${new Date(record.date).toLocaleDateString()}?`)) {
+                attendanceRecords.splice(index, 1);
+                saveAttendanceRecords();
+                filterHistory();
+                renderTodayAttendance();
+                alert('✅ Attendance record deleted');
+            }
+        }
+
+        // Generate Report
+        function generateReport() {
+            const reportType = document.getElementById('reportType').value;
+            const classFilter = document.getElementById('reportClassSelect').value;
+            const fromDate = document.getElementById('reportFromDate').value;
+            const toDate = document.getElementById('reportToDate').value;
+
+            let filtered = attendanceRecords;
+
+            if (classFilter) {
+                filtered = filtered.filter(a => a.class === classFilter);
+            }
+
+            if (fromDate) {
+                filtered = filtered.filter(a => a.date >= fromDate);
+            }
+
+            if (toDate) {
+                filtered = filtered.filter(a => a.date <= toDate);
+            }
+
+            if (filtered.length === 0) {
+                alert('No records found for the selected criteria');
+                return;
+            }
+
+            // Calculate stats
+            const totalPresent = filtered.filter(a => a.status === 'Present').length;
+            const totalAbsent = filtered.filter(a => a.status === 'Absent').length;
+            const totalLate = filtered.filter(a => a.status === 'Late').length;
+            const attendanceRate = ((totalPresent + totalLate) / filtered.length * 100).toFixed(1);
+
+            const statsHtml = `
+                <div class="stat-card">
+                    <div class="stat-label">Total Records</div>
+                    <div class="stat-value">${filtered.length}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Present</div>
+                    <div class="stat-value">${totalPresent}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Absent</div>
+                    <div class="stat-value">${totalAbsent}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Late</div>
+                    <div class="stat-value">${totalLate}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Attendance Rate</div>
+                    <div class="stat-value">${attendanceRate}%</div>
+                </div>
+            `;
+
+            document.getElementById('reportStats').innerHTML = statsHtml;
+
+            // Render table
+            const thead = document.getElementById('reportTableHead');
+            const tbody = document.getElementById('reportTableBody');
+
+            thead.innerHTML = `
+                <tr>
+                    <th>Date</th>
+                    <th>Student Name</th>
+                    <th>Reg No</th>
+                    <th>Class/Skill</th>
+                    <th>Status</th>
+                    <th>Time In</th>
+                    <th>Time Out</th>
+                    <th>Break (min)</th>
+                    <th>Net Hours</th>
+                </tr>
+            `;
+
+            tbody.innerHTML = '';
+
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(record => {
+                const netHours = calculateNetHours(record.timeIn, record.timeOut, record.breakTime);
+                const statusBadge = getStatusBadge(record.status);
+
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${new Date(record.date).toLocaleDateString()}</td>
+                    <td>${record.studentName}</td>
+                    <td>${record.regNo}</td>
+                    <td>${record.class}</td>
+                    <td>${statusBadge}</td>
+                    <td>${record.timeIn || 'N/A'}</td>
+                    <td>${record.timeOut || 'N/A'}</td>
+                    <td>${record.breakTime}</td>
+                    <td><strong>${netHours}</strong></td>
+                `;
+            });
+
+            document.getElementById('reportResults').style.display = 'block';
+        }
+
+        // Export Report to Excel
+        function exportReportToExcel() {
+            const table = document.querySelector('#reportResults table');
+            const wb = XLSX.utils.table_to_book(table);
+            XLSX.writeFile(wb, `Attendance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        // User Management
+        function addUser() {
+            if (currentUser.role !== 'Admin') {
+                alert('⚠️ Admin access required');
+                return;
+            }
+
+            const name = document.getElementById('newUserName').value.trim();
+            const username = document.getElementById('newUserUsername').value.trim();
+            const password = document.getElementById('newUserPassword').value;
+            const role = document.getElementById('newUserRole').value;
+
+            if (!name || !username || !password) {
+                alert('❌ Please fill in all required fields');
+                return;
+            }
+
+            if (users.find(u => u.username === username)) {
+                alert('❌ Username already exists');
+                return;
+            }
+
+            users.push({
+                id: 'USER' + Date.now(),
+                username: username,
+                password: password,
+                fullName: name,
+                role: role,
+                createdDate: new Date().toISOString()
+            });
+
+            saveUsers();
+            renderUsersTable();
+
+            document.getElementById('newUserName').value = '';
+            document.getElementById('newUserUsername').value = '';
+            document.getElementById('newUserPassword').value = '';
+
+            alert('✅ User added successfully!');
+        }
+
+        function renderUsersTable() {
+            const tbody = document.getElementById('usersTable');
+            tbody.innerHTML = '';
+
+            users.forEach((user, index) => {
+                const row = tbody.insertRow();
+                const roleBadge = user.role === 'Admin' ? 'badge-danger' : 'badge-primary';
+                
+                row.innerHTML = `
+                    <td>${user.username}</td>
+                    <td>${user.fullName}</td>
+                    <td><span class="badge ${roleBadge}">${user.role}</span></td>
+                    <td>${new Date(user.createdDate).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-danger" onclick="deleteUser(${index})" ${user.role === 'Admin' && users.filter(u => u.role === 'Admin').length === 1 ? 'disabled' : ''} style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">🗑️ Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        function deleteUser(index) {
+            if (confirm(`Are you sure you want to delete user ${users[index].username}?`)) {
+                users.splice(index, 1);
+                saveUsers();
+                renderUsersTable();
+                alert('✅ User deleted');
+            }
+        }
+
+        // Utility Functions
+        function calculateNetHours(timeIn, timeOut, breakTime) {
+            if (!timeIn || !timeOut) return 'N/A';
+
+            const [inHours, inMinutes] = timeIn.split(':').map(Number);
+            const [outHours, outMinutes] = timeOut.split(':').map(Number);
+
+            const totalMinutes = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes) - breakTime;
+            
+            if (totalMinutes < 0) return 'Invalid';
+
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+
+            return `${hours}h ${minutes}m`;
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'Present': '<span class="badge badge-success">Present</span>',
+                'Absent': '<span class="badge badge-danger">Absent</span>',
+                'Late': '<span class="badge badge-warning">Late</span>'
+            };
+            return badges[status] || status;
+        }
+
+        // Module Switching
+        function switchModule(moduleId) {
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.module').forEach(module => module.classList.remove('active'));
+            document.getElementById(moduleId).classList.add('active');
+        }
+
+        // Dark Mode
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('cestisAttendanceDarkMode', isDark);
+            
+            document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
+            document.getElementById('themeText').textContent = isDark ? 'Light' : 'Dark';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDefaultData();
+
+            // Check session
+            const savedUser = sessionStorage.getItem('cestisAttendanceCurrentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainDashboard').style.display = 'block';
+                document.getElementById('currentUserDisplay').textContent = `👤 ${currentUser.fullName} (${currentUser.role})`;
+                updateUIForRole();
+                populateSkillDropdowns();
+                renderTodayAttendance();
+            }
+
+            // Set today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('attendanceDate').value = today;
+            document.getElementById('historyToDate').value = today;
+            document.getElementById('reportToDate').value = today;
+
+            // Set week ago
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            document.getElementById('historyFromDate').value = weekAgo.toISOString().split('T')[0];
+            document.getElementById('reportFromDate').value = weekAgo.toISOString().split('T')[0];
+
+            // Dark mode
+            const isDark = localStorage.getItem('cestisAttendanceDarkMode') === 'true';
+            if (isDark) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeIcon').textContent = '☀️';
+                document.getElementById('themeText').textContent = 'Light';
+            }
+        });
+    </script>
+</body>
+</html>
