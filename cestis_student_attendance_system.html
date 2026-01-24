@@ -155,6 +155,23 @@
             border-left: 4px solid #c33;
         }
 
+        .forgot-password-link {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .forgot-password-link a {
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: color 0.2s ease;
+        }
+
+        .forgot-password-link a:hover {
+            color: #0d47a1;
+            text-decoration: underline;
+        }
+
         /* Header */
         .header {
             background: var(--bg-secondary);
@@ -729,19 +746,76 @@
 
             <div class="login-error" id="loginError"></div>
 
-            <form onsubmit="handleLogin(event)">
+            <!-- Step 1: Username/Password -->
+            <div id="loginStep1">
+                <form onsubmit="handleLogin(event)">
+                    <div class="input-group">
+                        <label>Username</label>
+                        <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                    </div>
+
+                    <button type="submit" class="login-btn">🔐 Login</button>
+
+                    <div class="forgot-password-link">
+                        <a href="#" onclick="showForgotPassword(event)">Forgot Password?</a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Step: Forgot Password - Enter Email -->
+            <div id="loginStepForgotPassword" style="display: none;">
+                <p class="login-subtitle" style="margin-bottom: 1rem;">Enter your email address to receive a one-time password</p>
+
                 <div class="input-group">
-                    <label>Username</label>
-                    <input type="text" id="loginUsername" class="login-input" required autocomplete="username">
+                    <label>Email Address</label>
+                    <input type="email" id="forgotPasswordEmail" class="login-input" placeholder="Enter your email" required>
+                </div>
+
+                <div id="forgotPasswordError" class="login-error" style="display: none;"></div>
+
+                <button type="button" class="login-btn" onclick="sendOTPEmail()">📧 Send OTP</button>
+                <button type="button" class="login-btn" onclick="cancelForgotPassword()" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); margin-top: 0.75rem;">Back to Login</button>
+            </div>
+
+            <!-- Step: Enter OTP -->
+            <div id="loginStepOTP" style="display: none;">
+                <p class="login-subtitle" style="margin-bottom: 1rem;">Enter the 6-digit code sent to your email</p>
+
+                <div class="input-group">
+                    <input type="text" id="otpCode" class="login-input" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="000000" style="text-align: center; letter-spacing: 0.5rem; font-size: 1.5rem;">
+                </div>
+
+                <div id="otpError" class="login-error" style="display: none;"></div>
+
+                <button type="button" class="login-btn" onclick="verifyOTP()">Verify OTP</button>
+                <button type="button" class="login-btn" onclick="resendOTP()" style="background: transparent; color: var(--primary-blue); border: none; margin-top: 0.5rem;">Resend Code</button>
+                <button type="button" class="login-btn" onclick="cancelForgotPassword()" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); margin-top: 0.75rem;">Cancel</button>
+            </div>
+
+            <!-- Step: Set New Password -->
+            <div id="loginStepNewPassword" style="display: none;">
+                <p class="login-subtitle" style="margin-bottom: 1rem;">Create a new password for your account</p>
+
+                <div class="input-group">
+                    <label>New Password</label>
+                    <input type="password" id="resetNewPassword" class="login-input" placeholder="Enter new password" required>
                 </div>
 
                 <div class="input-group">
-                    <label>Password</label>
-                    <input type="password" id="loginPassword" class="login-input" required autocomplete="current-password">
+                    <label>Confirm Password</label>
+                    <input type="password" id="resetConfirmPassword" class="login-input" placeholder="Confirm new password" required>
                 </div>
 
-                <button type="submit" class="login-btn">🔐 Login</button>
-            </form>
+                <div id="resetPasswordError" class="login-error" style="display: none;"></div>
+
+                <button type="button" class="login-btn" onclick="resetPassword()">🔒 Reset Password</button>
+                <button type="button" class="login-btn" onclick="cancelForgotPassword()" style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); margin-top: 0.75rem;">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -1158,6 +1232,10 @@
                             <input type="text" id="newUserUsername">
                         </div>
                         <div class="form-group">
+                            <label>Email *</label>
+                            <input type="email" id="newUserEmail" placeholder="user@example.com">
+                        </div>
+                        <div class="form-group">
                             <label>Password *</label>
                             <input type="password" id="newUserPassword">
                         </div>
@@ -1179,6 +1257,7 @@
                             <tr>
                                 <th>Username</th>
                                 <th>Full Name</th>
+                                <th>Email</th>
                                 <th>Role</th>
                                 <th>Created Date</th>
                                 <th>Actions</th>
@@ -1381,6 +1460,7 @@
                     username: 'admin',
                     password: 'admin123',
                     fullName: 'System Administrator',
+                    email: 'admin@cestis.org',
                     role: 'Admin',
                     createdDate: new Date().toISOString()
                 }, {
@@ -1388,6 +1468,7 @@
                     username: 'teacher',
                     password: 'teacher123',
                     fullName: 'Demo Teacher',
+                    email: 'teacher@cestis.org',
                     role: 'Teacher',
                     createdDate: new Date().toISOString()
                 }];
@@ -1403,6 +1484,7 @@
                         username: 'admin',
                         password: 'admin123',
                         fullName: 'System Administrator',
+                        email: 'admin@cestis.org',
                         role: 'Admin',
                         createdDate: new Date().toISOString()
                     });
@@ -1490,24 +1572,24 @@
         // Login
         function handleLogin(event) {
             event.preventDefault();
-            
+
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
-            
+
             const user = users.find(u => u.username === username && u.password === password);
-            
+
             if (user) {
                 currentUser = user;
                 sessionStorage.setItem('cestisAttendanceCurrentUser', JSON.stringify(user));
-                
+
                 document.getElementById('loginPage').style.display = 'none';
                 document.getElementById('mainDashboard').style.display = 'block';
                 document.getElementById('currentUserDisplay').textContent = `👤 ${user.fullName} (${user.role})`;
-                
+
                 updateUIForRole();
                 populateClassDropdowns();
                 renderTodayAttendance();
-                
+
             } else {
                 const errorDiv = document.getElementById('loginError');
                 errorDiv.textContent = '❌ Invalid credentials';
@@ -1515,6 +1597,237 @@
                 setTimeout(() => errorDiv.style.display = 'none', 3000);
             }
         }
+
+        // ============================================
+        // FORGOT PASSWORD / PASSWORD RESET FUNCTIONS
+        // ============================================
+
+        let pendingResetUser = null;
+        let currentOTP = null;
+        let otpExpiry = null;
+
+        // Show forgot password form
+        function showForgotPassword(event) {
+            event.preventDefault();
+            document.getElementById('loginStep1').style.display = 'none';
+            document.getElementById('loginStepForgotPassword').style.display = 'block';
+            document.getElementById('forgotPasswordEmail').value = '';
+            document.getElementById('forgotPasswordError').style.display = 'none';
+        }
+
+        // Cancel forgot password and return to login
+        function cancelForgotPassword() {
+            pendingResetUser = null;
+            currentOTP = null;
+            otpExpiry = null;
+
+            document.getElementById('loginStepForgotPassword').style.display = 'none';
+            document.getElementById('loginStepOTP').style.display = 'none';
+            document.getElementById('loginStepNewPassword').style.display = 'none';
+            document.getElementById('loginStep1').style.display = 'block';
+
+            // Clear all inputs
+            document.getElementById('forgotPasswordEmail').value = '';
+            document.getElementById('otpCode').value = '';
+            document.getElementById('resetNewPassword').value = '';
+            document.getElementById('resetConfirmPassword').value = '';
+        }
+
+        // Generate a 6-digit OTP
+        function generateOTP() {
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
+
+        // Send OTP to email
+        function sendOTPEmail() {
+            const email = document.getElementById('forgotPasswordEmail').value.trim();
+
+            if (!email) {
+                showForgotPasswordError('Please enter your email address');
+                return;
+            }
+
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showForgotPasswordError('Please enter a valid email address');
+                return;
+            }
+
+            // Find user by email
+            const user = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+
+            if (!user) {
+                showForgotPasswordError('No account found with this email address');
+                return;
+            }
+
+            // Generate OTP
+            currentOTP = generateOTP();
+            otpExpiry = Date.now() + (10 * 60 * 1000); // OTP valid for 10 minutes
+            pendingResetUser = user;
+
+            // Send email using EmailJS (if configured) or show demo message
+            sendOTPViaEmail(user.email, currentOTP, user.fullName);
+        }
+
+        // Send OTP via EmailJS or show demo message
+        function sendOTPViaEmail(email, otp, userName) {
+            // Check if EmailJS is configured
+            if (typeof emailjs !== 'undefined' && window.EMAILJS_SERVICE_ID) {
+                // Send via EmailJS
+                emailjs.send(window.EMAILJS_SERVICE_ID, window.EMAILJS_TEMPLATE_ID, {
+                    to_email: email,
+                    to_name: userName,
+                    otp_code: otp,
+                    app_name: 'CESTIS Attendance System'
+                }).then(function(response) {
+                    console.log('Email sent successfully');
+                    showOTPStep();
+                    alert('✅ OTP sent to your email address');
+                }, function(error) {
+                    console.error('Email failed:', error);
+                    // Fallback to demo mode
+                    showDemoOTP(otp);
+                });
+            } else {
+                // Demo mode - show OTP in alert
+                showDemoOTP(otp);
+            }
+        }
+
+        // Show OTP in demo mode
+        function showDemoOTP(otp) {
+            showOTPStep();
+            alert(`📧 DEMO MODE\n\nYour One-Time Password is:\n\n${otp}\n\n(In production, this would be sent to your email)\n\nThis code expires in 10 minutes.`);
+        }
+
+        // Show OTP entry step
+        function showOTPStep() {
+            document.getElementById('loginStepForgotPassword').style.display = 'none';
+            document.getElementById('loginStepOTP').style.display = 'block';
+            document.getElementById('otpCode').value = '';
+            document.getElementById('otpError').style.display = 'none';
+            document.getElementById('otpCode').focus();
+        }
+
+        // Resend OTP
+        function resendOTP() {
+            if (!pendingResetUser) {
+                cancelForgotPassword();
+                return;
+            }
+
+            // Generate new OTP
+            currentOTP = generateOTP();
+            otpExpiry = Date.now() + (10 * 60 * 1000);
+
+            // Send email
+            sendOTPViaEmail(pendingResetUser.email, currentOTP, pendingResetUser.fullName);
+        }
+
+        // Verify OTP
+        function verifyOTP() {
+            const enteredOTP = document.getElementById('otpCode').value.trim();
+
+            if (!enteredOTP) {
+                showOTPError('Please enter the OTP code');
+                return;
+            }
+
+            if (enteredOTP.length !== 6 || !/^\d+$/.test(enteredOTP)) {
+                showOTPError('OTP must be 6 digits');
+                return;
+            }
+
+            // Check if OTP expired
+            if (Date.now() > otpExpiry) {
+                showOTPError('OTP has expired. Please request a new one.');
+                return;
+            }
+
+            // Verify OTP
+            if (enteredOTP !== currentOTP) {
+                showOTPError('Invalid OTP. Please try again.');
+                return;
+            }
+
+            // OTP verified, show password reset form
+            document.getElementById('loginStepOTP').style.display = 'none';
+            document.getElementById('loginStepNewPassword').style.display = 'block';
+            document.getElementById('resetNewPassword').value = '';
+            document.getElementById('resetConfirmPassword').value = '';
+            document.getElementById('resetPasswordError').style.display = 'none';
+            document.getElementById('resetNewPassword').focus();
+        }
+
+        // Reset password
+        function resetPassword() {
+            const newPassword = document.getElementById('resetNewPassword').value;
+            const confirmPassword = document.getElementById('resetConfirmPassword').value;
+
+            if (!newPassword || !confirmPassword) {
+                showResetPasswordError('Please fill in both password fields');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showResetPasswordError('Password must be at least 6 characters');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showResetPasswordError('Passwords do not match');
+                return;
+            }
+
+            if (!pendingResetUser) {
+                showResetPasswordError('Session expired. Please start over.');
+                return;
+            }
+
+            // Update user password
+            const userIndex = users.findIndex(u => u.id === pendingResetUser.id);
+            if (userIndex !== -1) {
+                users[userIndex].password = newPassword;
+                users[userIndex].forcePasswordChange = false;
+                saveUsers();
+
+                // Clear reset state
+                pendingResetUser = null;
+                currentOTP = null;
+                otpExpiry = null;
+
+                // Show success and return to login
+                alert('✅ Password reset successfully! You can now login with your new password.');
+                cancelForgotPassword();
+            } else {
+                showResetPasswordError('User not found. Please start over.');
+            }
+        }
+
+        // Error display helpers
+        function showForgotPasswordError(message) {
+            const errorDiv = document.getElementById('forgotPasswordError');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.style.display = 'block';
+        }
+
+        function showOTPError(message) {
+            const errorDiv = document.getElementById('otpError');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.style.display = 'block';
+        }
+
+        function showResetPasswordError(message) {
+            const errorDiv = document.getElementById('resetPasswordError');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.style.display = 'block';
+        }
+
+        // ============================================
+        // END FORGOT PASSWORD FUNCTIONS
+        // ============================================
 
         // Logout
         function handleLogout() {
@@ -2453,11 +2766,19 @@
 
             const name = document.getElementById('newUserName').value.trim();
             const username = document.getElementById('newUserUsername').value.trim();
+            const email = document.getElementById('newUserEmail').value.trim();
             const password = document.getElementById('newUserPassword').value;
             const role = document.getElementById('newUserRole').value;
 
-            if (!name || !username || !password) {
+            if (!name || !username || !email || !password) {
                 alert('❌ Please fill in all required fields');
+                return;
+            }
+
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                alert('❌ Please enter a valid email address');
                 return;
             }
 
@@ -2466,11 +2787,17 @@
                 return;
             }
 
+            if (users.find(u => u.email === email)) {
+                alert('❌ Email already exists');
+                return;
+            }
+
             users.push({
                 id: 'USER' + Date.now(),
                 username: username,
                 password: password,
                 fullName: name,
+                email: email,
                 role: role,
                 createdDate: new Date().toISOString()
             });
@@ -2480,6 +2807,7 @@
 
             document.getElementById('newUserName').value = '';
             document.getElementById('newUserUsername').value = '';
+            document.getElementById('newUserEmail').value = '';
             document.getElementById('newUserPassword').value = '';
 
             alert('✅ User added successfully!');
@@ -2492,10 +2820,11 @@
             users.forEach((user, index) => {
                 const row = tbody.insertRow();
                 const roleBadge = user.role === 'Admin' ? 'badge-danger' : 'badge-primary';
-                
+
                 row.innerHTML = `
                     <td>${user.username}</td>
                     <td>${user.fullName}</td>
+                    <td>${user.email || '-'}</td>
                     <td><span class="badge ${roleBadge}">${user.role}</span></td>
                     <td>${new Date(user.createdDate).toLocaleDateString()}</td>
                     <td>
