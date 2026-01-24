@@ -3454,12 +3454,11 @@
             });
 
             if (emailJSConfigured) {
-                // Send via EmailJS
+                // Send via EmailJS - variable names must match template: {{email}}, {{passcode}}, {{time}}
                 emailjs.send(window.EMAILJS_SERVICE_ID, window.EMAILJS_TEMPLATE_ID, {
-                    to_email: email,
-                    to_name: userName,
-                    otp_code: otp,
-                    app_name: 'CESTIS Attendance System'
+                    email: email,
+                    passcode: otp,
+                    time: '10 minutes'
                 }).then(function(response) {
                     console.log('Email sent successfully:', response);
                     showOTPStep();
