@@ -2954,6 +2954,20 @@
                 saveUsers();
             } else {
                 users = JSON.parse(savedUsers);
+
+                // Ensure admin user always exists with default credentials
+                const adminUser = users.find(u => u.username === 'admin');
+                if (!adminUser) {
+                    users.unshift({
+                        id: 'USER001',
+                        username: 'admin',
+                        password: 'admin123',
+                        fullName: 'System Administrator',
+                        role: 'Admin',
+                        createdDate: new Date().toISOString()
+                    });
+                    saveUsers();
+                }
             }
 
             const savedStudents = localStorage.getItem('cestisStudents');
