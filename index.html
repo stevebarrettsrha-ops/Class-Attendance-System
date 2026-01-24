@@ -3445,6 +3445,14 @@
                 window.EMAILJS_SERVICE_ID &&
                 window.EMAILJS_TEMPLATE_ID;
 
+            console.log('EmailJS check:', {
+                emailjsDefined: typeof emailjs !== 'undefined',
+                publicKey: !!window.EMAILJS_PUBLIC_KEY,
+                serviceId: !!window.EMAILJS_SERVICE_ID,
+                templateId: !!window.EMAILJS_TEMPLATE_ID,
+                configured: emailJSConfigured
+            });
+
             if (emailJSConfigured) {
                 // Send via EmailJS
                 emailjs.send(window.EMAILJS_SERVICE_ID, window.EMAILJS_TEMPLATE_ID, {
@@ -3453,16 +3461,18 @@
                     otp_code: otp,
                     app_name: 'CESTIS Attendance System'
                 }).then(function(response) {
-                    console.log('Email sent successfully');
+                    console.log('Email sent successfully:', response);
                     showOTPStep();
                     alert('✅ OTP sent to your email address');
                 }, function(error) {
                     console.error('Email failed:', error);
-                    // Fallback to demo mode
+                    // Show error but still allow user to continue with demo OTP
+                    alert('⚠️ Email sending failed: ' + (error.text || error.message || 'Unknown error') + '\n\nFalling back to demo mode.');
                     showDemoOTP(otp);
                 });
             } else {
                 // Demo mode - show OTP in alert (EmailJS not configured)
+                console.log('EmailJS not configured, using demo mode');
                 showDemoOTP(otp);
             }
         }
