@@ -14,6 +14,24 @@
     <!-- TOTP/2FA Libraries for Google Authenticator -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/otpauth/9.2.2/otpauth.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- EmailJS for Password Reset OTP -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script type="text/javascript">
+        // EmailJS Configuration - Replace these with your actual EmailJS credentials
+        // Sign up at https://www.emailjs.com/ to get your credentials
+        // 1. Create an account at EmailJS
+        // 2. Add an email service (Gmail, Outlook, etc.)
+        // 3. Create an email template with variables: {{to_email}}, {{to_name}}, {{otp_code}}, {{app_name}}
+        // 4. Replace the values below with your Service ID and Template ID
+        window.EMAILJS_PUBLIC_KEY = ''; // Your EmailJS public key
+        window.EMAILJS_SERVICE_ID = ''; // Your EmailJS service ID (e.g., 'service_xxxxx')
+        window.EMAILJS_TEMPLATE_ID = ''; // Your EmailJS template ID (e.g., 'template_xxxxx')
+
+        // Initialize EmailJS when credentials are configured
+        if (window.EMAILJS_PUBLIC_KEY) {
+            emailjs.init(window.EMAILJS_PUBLIC_KEY);
+        }
+    </script>
     <style>
         /* ============================================
            CESTIS Student Attendance System
@@ -3137,10 +3155,10 @@
         function handleLogin(event) {
             event.preventDefault();
 
-            const username = document.getElementById('loginUsername').value.trim();
+            const username = document.getElementById('loginUsername').value.trim().toLowerCase();
             const password = document.getElementById('loginPassword').value;
 
-            const user = users.find(u => u.username === username && u.password === password);
+            const user = users.find(u => u.username.toLowerCase() === username && u.password === password);
 
             if (user) {
                 // Check if 2FA is enabled for this user
@@ -3421,8 +3439,13 @@
 
         // Send OTP via EmailJS or show demo message
         function sendOTPViaEmail(email, otp, userName) {
-            // Check if EmailJS is configured
-            if (typeof emailjs !== 'undefined' && window.EMAILJS_SERVICE_ID) {
+            // Check if EmailJS is fully configured (public key, service ID, and template ID)
+            const emailJSConfigured = typeof emailjs !== 'undefined' &&
+                window.EMAILJS_PUBLIC_KEY &&
+                window.EMAILJS_SERVICE_ID &&
+                window.EMAILJS_TEMPLATE_ID;
+
+            if (emailJSConfigured) {
                 // Send via EmailJS
                 emailjs.send(window.EMAILJS_SERVICE_ID, window.EMAILJS_TEMPLATE_ID, {
                     to_email: email,
@@ -3439,7 +3462,7 @@
                     showDemoOTP(otp);
                 });
             } else {
-                // Demo mode - show OTP in alert
+                // Demo mode - show OTP in alert (EmailJS not configured)
                 showDemoOTP(otp);
             }
         }
@@ -5221,8 +5244,8 @@
             }
 
             const name = document.getElementById('newUserName').value.trim();
-            const username = document.getElementById('newUserUsername').value.trim();
-            const email = document.getElementById('newUserEmail').value.trim();
+            const username = document.getElementById('newUserUsername').value.trim().toLowerCase();
+            const email = document.getElementById('newUserEmail').value.trim().toLowerCase();
             const password = document.getElementById('newUserPassword').value;
             const role = document.getElementById('newUserRole').value;
             const forcePasswordChange = document.getElementById('newUserForcePasswordChange').checked;
@@ -5239,12 +5262,12 @@
                 return;
             }
 
-            if (users.find(u => u.username === username)) {
+            if (users.find(u => u.username.toLowerCase() === username)) {
                 alert('❌ Username already exists');
                 return;
             }
 
-            if (users.find(u => u.email === email)) {
+            if (users.find(u => u.email && u.email.toLowerCase() === email)) {
                 alert('❌ Email already exists');
                 return;
             }
@@ -5341,8 +5364,8 @@
             if (editingUserIndex === null) return;
 
             const fullName = document.getElementById('editUserFullName').value.trim();
-            const username = document.getElementById('editUserUsername').value.trim();
-            const email = document.getElementById('editUserEmail').value.trim();
+            const username = document.getElementById('editUserUsername').value.trim().toLowerCase();
+            const email = document.getElementById('editUserEmail').value.trim().toLowerCase();
             const password = document.getElementById('editUserPassword').value;
             const role = document.getElementById('editUserRole').value;
             const forcePasswordChange = document.getElementById('editUserForcePasswordChange').checked;
@@ -5360,14 +5383,14 @@
             }
 
             // Check if username already exists (excluding current user)
-            const existingUser = users.find((u, idx) => u.username === username && idx !== editingUserIndex);
+            const existingUser = users.find((u, idx) => u.username.toLowerCase() === username && idx !== editingUserIndex);
             if (existingUser) {
                 alert('❌ Username already exists');
                 return;
             }
 
             // Check if email already exists (excluding current user)
-            const existingEmail = users.find((u, idx) => u.email === email && idx !== editingUserIndex);
+            const existingEmail = users.find((u, idx) => u.email && u.email.toLowerCase() === email && idx !== editingUserIndex);
             if (existingEmail) {
                 alert('❌ Email already exists');
                 return;
