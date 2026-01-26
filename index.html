@@ -2208,9 +2208,9 @@
                                         <span style="font-size: 0.6rem;">▼</span>
                                     </button>
                                     <div class="cloud-dropdown-content" id="cloudDropdownMenu">
-                                        <div class="cloud-dropdown-item" onclick="saveToCloud()">
-                                            <span>💾</span>
-                                            <span>Save to Cloud</span>
+                                        <div class="cloud-dropdown-item" onclick="mergeToCloud()" style="background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%); color: white;">
+                                            <span>🔀</span>
+                                            <span>Merge to Cloud</span>
                                         </div>
                                         <div class="cloud-dropdown-item" onclick="syncFromCloud()">
                                             <span>🔄</span>
@@ -6277,8 +6277,16 @@
             return null;
         }
 
-        // Save data to Google Drive
-        async function saveToCloud() {
+        // ============================================
+        // SMART MERGE TO CLOUD FUNCTIONALITY
+        // ============================================
+
+        // Track merge state
+        let cloudDataForMerge = null;
+        let mergeAnalysis = null;
+
+        // Main function to initiate merge to cloud
+        async function mergeToCloud() {
             if (!isCloudConnected || !googleAccessToken) {
                 alert('Please connect to Google Drive first');
                 return;
@@ -6287,47 +6295,617 @@
             const menu = document.getElementById('cloudDropdownMenu');
             menu.classList.remove('show');
 
-            // Check for changes by others before saving
-            const cloudInfo = await checkCloudForChanges();
+            // Check if user is Admin - only admins see the full modal
+            if (currentUser && currentUser.role === 'Admin') {
+                // Admin: Show the full merge modal
+                await openSmartMergeModal();
+            } else {
+                // Staff/Teacher: Just perform merge and show notification
+                await performStaffMerge();
+            }
+        }
 
-            let confirmMessage = '⚠️ MULTI-USER CLOUD SYNC\n\n';
-            confirmMessage += 'You are about to save to a shared cloud backup.\n\n';
+        // Admin: Open the smart merge modal with analysis
+        async function openSmartMergeModal() {
+            // First try to find the file if we don't have the ID
+            if (!cloudFileId) {
+                await findExistingBackupFile();
+            }
 
-            if (cloudInfo && cloudInfo.savedBy) {
-                const cloudTime = new Date(cloudInfo.timestamp);
-                const timeSinceLastSave = getTimeAgo(cloudTime);
+            document.getElementById('smartMergeLoading').style.display = 'block';
+            document.getElementById('smartMergeContent').style.display = 'none';
+            document.getElementById('executeMergeBtn').disabled = true;
+            document.getElementById('smartMergeModal').style.display = 'flex';
 
-                // Check if someone else saved since our last sync
-                const hasConflict = lastSyncTime && cloudTime > lastSyncTime;
+            try {
+                let cloudData = null;
 
-                if (hasConflict && cloudInfo.savedBy !== (currentUser ? currentUser.username : '')) {
-                    confirmMessage += `⚠️ WARNING: ${cloudInfo.savedBy} saved changes ${timeSinceLastSave}!\n`;
-                    confirmMessage += `Your local data may not include their changes.\n\n`;
-                    confirmMessage += `💡 Recommendation: Click Cancel, then "Sync from Cloud" first.\n\n`;
+                if (cloudFileId) {
+                    // Download existing cloud data
+                    const response = await fetch(
+                        `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`
+                            }
+                        }
+                    );
+
+                    if (response.ok) {
+                        try {
+                            cloudData = await response.json();
+                            console.log('Cloud data loaded:', cloudData);
+                        } catch (parseError) {
+                            console.error('Failed to parse cloud data:', parseError);
+                            cloudData = null;
+                        }
+                    }
+                }
+
+                // Ensure cloudData has the expected structure
+                if (cloudData && !cloudData.data) {
+                    console.warn('Cloud data missing "data" property, initializing empty structure');
+                    cloudData = { data: { users: [], students: [], attendanceRecords: [], skills: [] }, version: '1.0' };
+                }
+
+                cloudDataForMerge = cloudData;
+                mergeAnalysis = analyzeDataForMerge(cloudData);
+                console.log('Merge analysis:', mergeAnalysis);
+                displayMergeAnalysis(mergeAnalysis, cloudData);
+
+            } catch (error) {
+                console.error('Error loading cloud data for merge:', error);
+                closeSmartMergeModal();
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    alert('Your session has expired. Please reconnect to Google Drive.');
+                    disconnectFromGoogleDrive();
                 } else {
-                    confirmMessage += `Last saved by: ${cloudInfo.savedBy} (${timeSinceLastSave})\n\n`;
+                    alert(`Failed to load cloud data: ${error.message}`);
                 }
             }
+        }
 
-            confirmMessage += 'This will overwrite the cloud backup. Continue?';
+        // Analyze local and cloud data for merge
+        function analyzeDataForMerge(cloudData) {
+            const analysis = {
+                users: { conflicts: [], newLocal: [], newCloud: [], total: 0 },
+                students: { conflicts: [], newLocal: [], newCloud: [], total: 0 },
+                attendanceRecords: { conflicts: [], newLocal: [], newCloud: [], total: 0 },
+                skills: { conflicts: [], newLocal: [], newCloud: [], total: 0 }
+            };
 
-            if (!confirm(confirmMessage)) {
+            // Robust null checking - ensure we have valid arrays
+            let cloudUsers = [];
+            let cloudStudents = [];
+            let cloudRecords = [];
+            let cloudSkills = [];
+
+            if (cloudData && cloudData.data) {
+                cloudUsers = Array.isArray(cloudData.data.users) ? cloudData.data.users : [];
+                cloudStudents = Array.isArray(cloudData.data.students) ? cloudData.data.students : [];
+                cloudRecords = Array.isArray(cloudData.data.attendanceRecords) ? cloudData.data.attendanceRecords : [];
+                cloudSkills = Array.isArray(cloudData.data.skills) ? cloudData.data.skills : [];
+            }
+
+            // Analyze users
+            analysis.users.total = users.length;
+
+            users.forEach(localUser => {
+                const cloudMatch = cloudUsers.find(cu => cu.id === localUser.id || cu.username === localUser.username);
+                if (!cloudMatch) {
+                    analysis.users.newLocal.push(localUser);
+                } else if (JSON.stringify(localUser) !== JSON.stringify(cloudMatch)) {
+                    analysis.users.conflicts.push({
+                        local: localUser,
+                        cloud: cloudMatch,
+                        reasons: detectUserDifferences(localUser, cloudMatch)
+                    });
+                }
+            });
+
+            cloudUsers.forEach(cloudUser => {
+                const localMatch = users.find(lu => lu.id === cloudUser.id || lu.username === cloudUser.username);
+                if (!localMatch) {
+                    analysis.users.newCloud.push(cloudUser);
+                }
+            });
+
+            // Analyze students
+            analysis.students.total = students.length;
+
+            students.forEach(localStudent => {
+                const cloudMatch = cloudStudents.find(cs => cs.id === localStudent.id);
+                if (!cloudMatch) {
+                    analysis.students.newLocal.push(localStudent);
+                } else if (JSON.stringify(localStudent) !== JSON.stringify(cloudMatch)) {
+                    analysis.students.conflicts.push({
+                        local: localStudent,
+                        cloud: cloudMatch,
+                        reasons: detectStudentDifferences(localStudent, cloudMatch)
+                    });
+                }
+            });
+
+            cloudStudents.forEach(cloudStudent => {
+                const localMatch = students.find(ls => ls.id === cloudStudent.id);
+                if (!localMatch) {
+                    analysis.students.newCloud.push(cloudStudent);
+                }
+            });
+
+            // Analyze attendance records
+            analysis.attendanceRecords.total = attendanceRecords.length;
+
+            attendanceRecords.forEach(localRecord => {
+                const cloudMatch = cloudRecords.find(cr => cr.id === localRecord.id);
+                if (!cloudMatch) {
+                    analysis.attendanceRecords.newLocal.push(localRecord);
+                } else if (JSON.stringify(localRecord) !== JSON.stringify(cloudMatch)) {
+                    analysis.attendanceRecords.conflicts.push({
+                        local: localRecord,
+                        cloud: cloudMatch,
+                        reasons: detectRecordDifferences(localRecord, cloudMatch)
+                    });
+                }
+            });
+
+            cloudRecords.forEach(cloudRecord => {
+                const localMatch = attendanceRecords.find(lr => lr.id === cloudRecord.id);
+                if (!localMatch) {
+                    analysis.attendanceRecords.newCloud.push(cloudRecord);
+                }
+            });
+
+            // Analyze skills
+            analysis.skills.total = skills.length;
+
+            skills.forEach(localSkill => {
+                const cloudMatch = cloudSkills.find(cs => cs.id === localSkill.id || cs.name === localSkill.name);
+                if (!cloudMatch) {
+                    analysis.skills.newLocal.push(localSkill);
+                } else if (JSON.stringify(localSkill) !== JSON.stringify(cloudMatch)) {
+                    analysis.skills.conflicts.push({
+                        local: localSkill,
+                        cloud: cloudMatch,
+                        reasons: ['Different skill data']
+                    });
+                }
+            });
+
+            cloudSkills.forEach(cloudSkill => {
+                const localMatch = skills.find(ls => ls.id === cloudSkill.id || ls.name === cloudSkill.name);
+                if (!localMatch) {
+                    analysis.skills.newCloud.push(cloudSkill);
+                }
+            });
+
+            return analysis;
+        }
+
+        // Detect differences between user records
+        function detectUserDifferences(local, cloud) {
+            const reasons = [];
+            const fieldsToCheck = ['fullName', 'role', 'email', 'password'];
+
+            fieldsToCheck.forEach(field => {
+                if (local[field] !== cloud[field]) {
+                    if (field === 'password') {
+                        reasons.push('Password changed');
+                    } else {
+                        reasons.push(`${field}: "${local[field] || '-'}" vs "${cloud[field] || '-'}"`);
+                    }
+                }
+            });
+
+            return reasons;
+        }
+
+        // Detect differences between student records
+        function detectStudentDifferences(local, cloud) {
+            const reasons = [];
+            const fieldsToCheck = ['name', 'email', 'course', 'year'];
+
+            fieldsToCheck.forEach(field => {
+                if (local[field] !== cloud[field]) {
+                    reasons.push(`${field}: "${local[field] || '-'}" vs "${cloud[field] || '-'}"`);
+                }
+            });
+
+            return reasons;
+        }
+
+        // Detect differences between attendance records
+        function detectRecordDifferences(local, cloud) {
+            const reasons = [];
+
+            if (local.date !== cloud.date) reasons.push('Different date');
+            if (local.status !== cloud.status) reasons.push('Different status');
+            if (local.studentId !== cloud.studentId) reasons.push('Different student');
+
+            return reasons;
+        }
+
+        // Display merge analysis in the modal
+        function displayMergeAnalysis(analysis, cloudData) {
+            document.getElementById('smartMergeLoading').style.display = 'none';
+            document.getElementById('smartMergeContent').style.display = 'block';
+            document.getElementById('executeMergeBtn').disabled = false;
+
+            const cloudTime = cloudData && cloudData.timestamp ? new Date(cloudData.timestamp).toLocaleString() : 'No backup found';
+            const savedBy = (cloudData && cloudData.savedBy) ? cloudData.savedBy : 'N/A';
+
+            // Calculate cloud counts with null safety
+            let cloudUsersCount = 0;
+            let cloudStudentsCount = 0;
+            let cloudRecordsCount = 0;
+            let cloudSkillsCount = 0;
+            if (cloudData && cloudData.data) {
+                cloudUsersCount = Array.isArray(cloudData.data.users) ? cloudData.data.users.length : 0;
+                cloudStudentsCount = Array.isArray(cloudData.data.students) ? cloudData.data.students.length : 0;
+                cloudRecordsCount = Array.isArray(cloudData.data.attendanceRecords) ? cloudData.data.attendanceRecords.length : 0;
+                cloudSkillsCount = Array.isArray(cloudData.data.skills) ? cloudData.data.skills.length : 0;
+            }
+
+            const totalNewLocal = analysis.users.newLocal.length + analysis.students.newLocal.length +
+                                  analysis.attendanceRecords.newLocal.length + analysis.skills.newLocal.length;
+            const totalNewCloud = analysis.users.newCloud.length + analysis.students.newCloud.length +
+                                  analysis.attendanceRecords.newCloud.length + analysis.skills.newCloud.length;
+            const totalConflicts = analysis.users.conflicts.length + analysis.students.conflicts.length +
+                                   analysis.attendanceRecords.conflicts.length + analysis.skills.conflicts.length;
+
+            let summaryHtml = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+                    <div style="text-align: center; padding: 1rem; background: var(--bg-card); border-radius: 0.5rem;">
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">Cloud Backup</div>
+                        <div style="font-size: 0.9rem; margin-top: 0.25rem;">${cloudTime}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">by ${savedBy}</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: #E8F5E9; border-radius: 0.5rem;">
+                        <div style="font-size: 2rem; font-weight: bold; color: #4CAF50;">${totalNewLocal}</div>
+                        <div style="font-size: 0.85rem; color: #2E7D32;">New Local Records</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: #E3F2FD; border-radius: 0.5rem;">
+                        <div style="font-size: 2rem; font-weight: bold; color: #2196F3;">${totalNewCloud}</div>
+                        <div style="font-size: 0.85rem; color: #1565C0;">New Cloud Records</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: #FFF3E0; border-radius: 0.5rem;">
+                        <div style="font-size: 2rem; font-weight: bold; color: #FF9800;">${totalConflicts}</div>
+                        <div style="font-size: 0.85rem; color: #E65100;">Potential Conflicts</div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-card); border-radius: 0.5rem;">
+                    <strong>Local has:</strong> ${users.length} users, ${students.length} students, ${attendanceRecords.length} attendance records, ${skills.length} skills
+                    <br>
+                    <strong>Cloud has:</strong> ${cloudUsersCount} users, ${cloudStudentsCount} students, ${cloudRecordsCount} attendance records, ${cloudSkillsCount} skills
+                </div>`;
+
+            document.getElementById('mergeSummary').innerHTML = summaryHtml;
+
+            // Display conflicts
+            if (totalConflicts > 0) {
+                document.getElementById('cloudConflictsSection').style.display = 'block';
+                let conflictHtml = '<div style="max-height: 250px; overflow-y: auto;">';
+
+                analysis.users.conflicts.forEach((conflict, idx) => {
+                    conflictHtml += `
+                        <div style="background: #FFF8E1; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 0.5rem; border-left: 3px solid #FF9800;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="color: #E65100;">User:</strong> ${conflict.local.fullName || conflict.local.username}
+                                    <span style="background: #FFE0B2; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; margin-left: 0.5rem;">
+                                        ${conflict.reasons.length} difference(s)
+                                    </span>
+                                </div>
+                                <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem;">
+                                    <input type="checkbox" class="conflict-override" data-type="user" data-idx="${idx}" checked>
+                                    Use local
+                                </label>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                ${conflict.reasons.slice(0, 2).join(', ')}${conflict.reasons.length > 2 ? '...' : ''}
+                            </div>
+                        </div>`;
+                });
+
+                analysis.students.conflicts.forEach((conflict, idx) => {
+                    conflictHtml += `
+                        <div style="background: #FFF8E1; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 0.5rem; border-left: 3px solid #FF9800;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="color: #E65100;">Student:</strong> ${conflict.local.name}
+                                    <span style="background: #FFE0B2; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; margin-left: 0.5rem;">
+                                        ${conflict.reasons.length} difference(s)
+                                    </span>
+                                </div>
+                                <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem;">
+                                    <input type="checkbox" class="conflict-override" data-type="student" data-idx="${idx}" checked>
+                                    Use local
+                                </label>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                ${conflict.reasons.slice(0, 2).join(', ')}${conflict.reasons.length > 2 ? '...' : ''}
+                            </div>
+                        </div>`;
+                });
+
+                analysis.attendanceRecords.conflicts.forEach((conflict, idx) => {
+                    const student = students.find(s => s.id === conflict.local.studentId);
+                    conflictHtml += `
+                        <div style="background: #FFF8E1; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 0.5rem; border-left: 3px solid #FF9800;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="color: #E65100;">Attendance:</strong> ${student ? student.name : 'Unknown'} - ${conflict.local.date}
+                                    <span style="background: #FFE0B2; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; margin-left: 0.5rem;">
+                                        ${conflict.reasons.join(', ')}
+                                    </span>
+                                </div>
+                                <label style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem;">
+                                    <input type="checkbox" class="conflict-override" data-type="record" data-idx="${idx}" checked>
+                                    Use local
+                                </label>
+                            </div>
+                        </div>`;
+                });
+
+                conflictHtml += '</div>';
+                document.getElementById('cloudConflictsList').innerHTML = conflictHtml;
+            } else {
+                document.getElementById('cloudConflictsSection').style.display = 'none';
+            }
+
+            // Display new records
+            const totalNew = totalNewLocal + totalNewCloud;
+            if (totalNew > 0) {
+                document.getElementById('newRecordsSection').style.display = 'block';
+                let newHtml = '<div style="max-height: 200px; overflow-y: auto;">';
+
+                analysis.users.newLocal.forEach(user => {
+                    newHtml += `
+                        <div style="background: #E8F5E9; padding: 0.5rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                            <span><strong>Local User:</strong> ${user.fullName || user.username} (${user.role})</span>
+                            <span style="color: #4CAF50;">Will be added to cloud</span>
+                        </div>`;
+                });
+
+                analysis.users.newCloud.forEach(user => {
+                    newHtml += `
+                        <div style="background: #E3F2FD; padding: 0.5rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                            <span><strong>Cloud User:</strong> ${user.fullName || user.username} (${user.role})</span>
+                            <span style="color: #2196F3;">Will be added locally</span>
+                        </div>`;
+                });
+
+                analysis.students.newLocal.forEach(student => {
+                    newHtml += `
+                        <div style="background: #E8F5E9; padding: 0.5rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                            <span><strong>Local Student:</strong> ${student.name}</span>
+                            <span style="color: #4CAF50;">Will be added to cloud</span>
+                        </div>`;
+                });
+
+                analysis.students.newCloud.forEach(student => {
+                    newHtml += `
+                        <div style="background: #E3F2FD; padding: 0.5rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                            <span><strong>Cloud Student:</strong> ${student.name}</span>
+                            <span style="color: #2196F3;">Will be added locally</span>
+                        </div>`;
+                });
+
+                analysis.attendanceRecords.newLocal.forEach(record => {
+                    const student = students.find(s => s.id === record.studentId);
+                    newHtml += `
+                        <div style="background: #E8F5E9; padding: 0.5rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                            <span><strong>Local Attendance:</strong> ${student ? student.name : 'Unknown'} - ${record.date}</span>
+                            <span style="color: #4CAF50;">Will be added to cloud</span>
+                        </div>`;
+                });
+
+                analysis.attendanceRecords.newCloud.forEach(record => {
+                    newHtml += `
+                        <div style="background: #E3F2FD; padding: 0.5rem 0.75rem; border-radius: 0.25rem; margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                            <span><strong>Cloud Attendance:</strong> ${record.date}</span>
+                            <span style="color: #2196F3;">Will be added locally</span>
+                        </div>`;
+                });
+
+                newHtml += '</div>';
+                document.getElementById('newRecordsList').innerHTML = newHtml;
+            } else {
+                document.getElementById('newRecordsSection').style.display = 'none';
+            }
+        }
+
+        // Show merge progress overlay
+        function showMergeProgress(message, percentage) {
+            // Remove existing progress overlay if any
+            hideMergeProgress();
+
+            const progressHTML = `
+                <div id="mergeProgressOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 2000; display: flex; justify-content: center; align-items: center;">
+                    <div style="background: var(--bg-secondary); padding: 2rem; border-radius: 24px; max-width: 400px; width: 90%; box-shadow: var(--shadow-xl); text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem; animation: pulse 1.5s ease-in-out infinite;">🔄</div>
+                        <h3 style="color: var(--text-primary); margin-bottom: 1rem;">Merging Data</h3>
+                        <p id="mergeProgressMessage" style="color: var(--text-secondary); margin-bottom: 1.5rem;">${message}</p>
+                        <div style="background: var(--bg-tertiary); border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 0.5rem;">
+                            <div id="mergeProgressBar" style="background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%); height: 100%; width: ${percentage}%; transition: width 0.3s ease; border-radius: 10px;"></div>
+                        </div>
+                        <p id="mergeProgressPercent" style="color: var(--text-muted); font-size: 0.9rem;">${percentage}%</p>
+                    </div>
+                </div>
+                <style>
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                    }
+                </style>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', progressHTML);
+        }
+
+        // Update merge progress
+        function updateMergeProgress(message, percentage) {
+            const msgEl = document.getElementById('mergeProgressMessage');
+            const barEl = document.getElementById('mergeProgressBar');
+            const pctEl = document.getElementById('mergeProgressPercent');
+
+            if (msgEl) msgEl.textContent = message;
+            if (barEl) barEl.style.width = percentage + '%';
+            if (pctEl) pctEl.textContent = percentage + '%';
+        }
+
+        // Hide merge progress overlay
+        function hideMergeProgress() {
+            const overlay = document.getElementById('mergeProgressOverlay');
+            if (overlay) overlay.remove();
+        }
+
+        // Execute the smart merge (Admin)
+        async function executeSmartMerge() {
+            if (!mergeAnalysis || !mergeAnalysis.users || !mergeAnalysis.attendanceRecords) {
+                alert('No merge analysis available. Please try again.');
                 return;
             }
+
+            const skipDuplicates = document.getElementById('mergeSkipDuplicates').checked;
+            const addNewOnly = document.getElementById('mergeAddNewOnly').checked;
+
+            // Show merge progress overlay
+            showMergeProgress('Preparing merge...', 0);
 
             setCloudSyncing(true);
 
             try {
-                // Prepare data for backup
+                // Small delay to show initial status
+                await new Promise(resolve => setTimeout(resolve, 300));
+                updateMergeProgress('Analyzing records...', 10);
+
+                // Get conflict resolution preferences
+                const useLocalUsers = new Set();
+                const useLocalStudents = new Set();
+                const useLocalRecords = new Set();
+                document.querySelectorAll('.conflict-override:checked').forEach(cb => {
+                    if (cb.dataset.type === 'user') useLocalUsers.add(parseInt(cb.dataset.idx));
+                    if (cb.dataset.type === 'student') useLocalStudents.add(parseInt(cb.dataset.idx));
+                    if (cb.dataset.type === 'record') useLocalRecords.add(parseInt(cb.dataset.idx));
+                });
+
+                // Build merged users list
+                const mergedUsers = [...users];
+
+                // Add new users from cloud (with null safety)
+                if (addNewOnly && Array.isArray(mergeAnalysis.users.newCloud)) {
+                    mergeAnalysis.users.newCloud.forEach(cloudUser => {
+                        if (cloudUser && !mergedUsers.find(u => u.id === cloudUser.id || u.username === cloudUser.username)) {
+                            mergedUsers.push({ ...cloudUser });
+                        }
+                    });
+                }
+
+                // Handle user conflicts - use local by default (checkbox is checked)
+                if (Array.isArray(mergeAnalysis.users.conflicts)) {
+                    mergeAnalysis.users.conflicts.forEach((conflict, idx) => {
+                        if (conflict && conflict.local && conflict.cloud && !useLocalUsers.has(idx)) {
+                            // Use cloud version
+                            const localIdx = mergedUsers.findIndex(u => u.id === conflict.local.id);
+                            if (localIdx !== -1) {
+                                mergedUsers[localIdx] = { ...conflict.cloud };
+                            }
+                        }
+                    });
+                }
+
+                // Build merged students list
+                const mergedStudents = [...students];
+
+                // Add new students from cloud
+                if (addNewOnly && Array.isArray(mergeAnalysis.students.newCloud)) {
+                    mergeAnalysis.students.newCloud.forEach(cloudStudent => {
+                        if (cloudStudent && !mergedStudents.find(s => s.id === cloudStudent.id)) {
+                            mergedStudents.push({ ...cloudStudent });
+                        }
+                    });
+                }
+
+                // Handle student conflicts
+                if (Array.isArray(mergeAnalysis.students.conflicts)) {
+                    mergeAnalysis.students.conflicts.forEach((conflict, idx) => {
+                        if (conflict && conflict.local && conflict.cloud && !useLocalStudents.has(idx)) {
+                            const localIdx = mergedStudents.findIndex(s => s.id === conflict.local.id);
+                            if (localIdx !== -1) {
+                                mergedStudents[localIdx] = { ...conflict.cloud };
+                            }
+                        }
+                    });
+                }
+
+                // Build merged attendance records list
+                const mergedRecords = [...attendanceRecords];
+
+                // Add new records from cloud (with null safety)
+                if (addNewOnly && Array.isArray(mergeAnalysis.attendanceRecords.newCloud)) {
+                    mergeAnalysis.attendanceRecords.newCloud.forEach(cloudRecord => {
+                        if (cloudRecord && !mergedRecords.find(r => r.id === cloudRecord.id)) {
+                            mergedRecords.push({ ...cloudRecord });
+                        }
+                    });
+                }
+
+                // Handle record conflicts
+                if (Array.isArray(mergeAnalysis.attendanceRecords.conflicts)) {
+                    mergeAnalysis.attendanceRecords.conflicts.forEach((conflict, idx) => {
+                        if (conflict && conflict.local && conflict.cloud && !useLocalRecords.has(idx)) {
+                            // Use cloud version
+                            const localIdx = mergedRecords.findIndex(r => r.id === conflict.local.id);
+                            if (localIdx !== -1) {
+                                mergedRecords[localIdx] = { ...conflict.cloud };
+                            }
+                        }
+                    });
+                }
+
+                // Build merged skills list
+                const mergedSkills = [...skills];
+
+                if (addNewOnly && Array.isArray(mergeAnalysis.skills.newCloud)) {
+                    mergeAnalysis.skills.newCloud.forEach(cloudSkill => {
+                        if (cloudSkill && !mergedSkills.find(s => s.id === cloudSkill.id || s.name === cloudSkill.name)) {
+                            mergedSkills.push({ ...cloudSkill });
+                        }
+                    });
+                }
+
+                // Update progress
+                updateMergeProgress('Merging records...', 30);
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                // Update local data
+                users = mergedUsers;
+                students = mergedStudents;
+                attendanceRecords = mergedRecords;
+                skills = mergedSkills;
+
+                updateMergeProgress('Saving locally...', 50);
+                saveUsers();
+                saveStudents();
+                saveAttendanceRecords();
+                saveSkills();
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                updateMergeProgress('Uploading to cloud...', 70);
+
+                // Save merged data to cloud
                 const backupData = {
                     version: '1.0',
                     timestamp: new Date().toISOString(),
                     savedBy: currentUser ? currentUser.username : 'Unknown',
+                    mergedBy: currentUser ? currentUser.username : 'Unknown',
                     data: {
-                        users: users,
-                        students: students,
-                        attendanceRecords: attendanceRecords,
-                        skills: skills
+                        users: mergedUsers,
+                        students: mergedStudents,
+                        attendanceRecords: mergedRecords,
+                        skills: mergedSkills
                     }
                 };
 
@@ -6337,7 +6915,6 @@
                 let response;
 
                 if (cloudFileId) {
-                    // Update existing file
                     response = await fetch(
                         `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`,
                         {
@@ -6350,7 +6927,6 @@
                         }
                     );
                 } else {
-                    // Create new file with metadata
                     const metadata = {
                         name: GOOGLE_DRIVE_CONFIG.BACKUP_FILE_NAME,
                         parents: [GOOGLE_DRIVE_CONFIG.FOLDER_ID],
@@ -6381,34 +6957,429 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.error?.message || 'Upload failed');
+                    throw new Error(errorData.error?.message || 'Merge upload failed');
                 }
 
-                // Update last sync time
+                updateMergeProgress('Finalizing...', 90);
+
+                // Update sync tracking
                 lastSyncTime = new Date();
                 localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
                 updateLastSyncDisplay();
 
-                // Update last saved by info
                 lastSavedBy = currentUser ? currentUser.username : 'Unknown';
                 cloudFileTimestamp = new Date().toISOString();
                 updateLastSavedByDisplay();
 
+                // Update UI
+                if (typeof renderUsersTable === 'function') renderUsersTable();
+                if (typeof renderStudentsTable === 'function') renderStudentsTable();
+                if (typeof renderTodayAttendance === 'function') renderTodayAttendance();
+
+                updateMergeProgress('Merge complete!', 100);
+                await new Promise(resolve => setTimeout(resolve, 500));
+
                 setCloudSyncing(false);
-                alert(`✅ Data saved to Google Drive successfully!\n\nSaved by: ${lastSavedBy}\n\n💡 Tip: Let other users know to sync from cloud to get your changes.`);
+                hideMergeProgress();
+                closeSmartMergeModal();
+
+                // Show success
+                showMergeSuccessModal(mergeAnalysis);
 
             } catch (error) {
-                console.error('Error saving to cloud:', error);
+                console.error('Error executing merge:', error);
                 setCloudSyncing(false);
+                hideMergeProgress();
 
                 if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
-                    alert('❌ Your session has expired. Please reconnect to Google Drive.');
+                    alert('Your session has expired. Please reconnect to Google Drive.');
                     disconnectFromGoogleDrive();
                 } else {
-                    alert(`❌ Failed to save to cloud: ${error.message}`);
+                    alert(`Failed to merge: ${error.message}`);
+                }
+            }
+
+            cloudDataForMerge = null;
+            mergeAnalysis = null;
+        }
+
+        // Staff/Teacher: Perform automatic merge without modal
+        async function performStaffMerge() {
+            // Show progress for staff merge too
+            showMergeProgress('Connecting to cloud...', 0);
+            setCloudSyncing(true);
+
+            try {
+                // First try to find the file if we don't have the ID
+                if (!cloudFileId) {
+                    await findExistingBackupFile();
+                }
+
+                updateMergeProgress('Downloading cloud data...', 20);
+
+                let cloudData = null;
+                let existingUsers = [];
+                let existingStudents = [];
+                let existingRecords = [];
+                let existingSkills = [];
+
+                if (cloudFileId) {
+                    const response = await fetch(
+                        `https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`
+                            }
+                        }
+                    );
+
+                    if (response.ok) {
+                        try {
+                            cloudData = await response.json();
+                            console.log('Staff merge - Cloud data loaded:', cloudData);
+                            // Robust null checking for cloud data structure
+                            if (cloudData && cloudData.data) {
+                                existingUsers = Array.isArray(cloudData.data.users) ? cloudData.data.users : [];
+                                existingStudents = Array.isArray(cloudData.data.students) ? cloudData.data.students : [];
+                                existingRecords = Array.isArray(cloudData.data.attendanceRecords) ? cloudData.data.attendanceRecords : [];
+                                existingSkills = Array.isArray(cloudData.data.skills) ? cloudData.data.skills : [];
+                            }
+                        } catch (parseError) {
+                            console.error('Failed to parse cloud data:', parseError);
+                            // Continue with empty arrays
+                        }
+                    }
+                }
+
+                console.log('Local users count:', users.length, 'Local students count:', students.length);
+                console.log('Cloud users count:', existingUsers.length, 'Cloud students count:', existingStudents.length);
+
+                // Merge users (add new local ones to cloud)
+                const mergedUsers = [...existingUsers];
+                let addedUsers = 0;
+                users.forEach(localUser => {
+                    const exists = mergedUsers.find(u => u.id === localUser.id || u.username === localUser.username);
+                    if (!exists) {
+                        mergedUsers.push({ ...localUser });
+                        addedUsers++;
+                    } else {
+                        // Update existing user with local changes
+                        const idx = mergedUsers.findIndex(u => u.id === localUser.id || u.username === localUser.username);
+                        mergedUsers[idx] = { ...localUser };
+                    }
+                });
+
+                // Merge students
+                const mergedStudents = [...existingStudents];
+                let addedStudents = 0;
+                students.forEach(localStudent => {
+                    const exists = mergedStudents.find(s => s.id === localStudent.id);
+                    if (!exists) {
+                        mergedStudents.push({ ...localStudent });
+                        addedStudents++;
+                    } else {
+                        const idx = mergedStudents.findIndex(s => s.id === localStudent.id);
+                        mergedStudents[idx] = { ...localStudent };
+                    }
+                });
+
+                // Merge attendance records
+                const mergedRecords = [...existingRecords];
+                let addedRecords = 0;
+                attendanceRecords.forEach(localRecord => {
+                    const exists = mergedRecords.find(r => r.id === localRecord.id);
+                    if (!exists) {
+                        mergedRecords.push({ ...localRecord });
+                        addedRecords++;
+                    } else {
+                        // Update existing record
+                        const idx = mergedRecords.findIndex(r => r.id === localRecord.id);
+                        mergedRecords[idx] = { ...localRecord };
+                    }
+                });
+
+                // Merge skills
+                const mergedSkills = [...existingSkills];
+                let addedSkills = 0;
+                skills.forEach(localSkill => {
+                    const exists = mergedSkills.find(s => s.id === localSkill.id || s.name === localSkill.name);
+                    if (!exists) {
+                        mergedSkills.push({ ...localSkill });
+                        addedSkills++;
+                    } else {
+                        const idx = mergedSkills.findIndex(s => s.id === localSkill.id || s.name === localSkill.name);
+                        mergedSkills[idx] = { ...localSkill };
+                    }
+                });
+
+                updateMergeProgress('Merging records...', 40);
+
+                // Also pull any cloud-only records to local
+                let pulledUsers = 0;
+                let pulledStudents = 0;
+                let pulledRecords = 0;
+                let pulledSkills = 0;
+
+                existingUsers.forEach(cloudUser => {
+                    if (!users.find(u => u.id === cloudUser.id || u.username === cloudUser.username)) {
+                        users.push({ ...cloudUser });
+                        pulledUsers++;
+                    }
+                });
+                existingStudents.forEach(cloudStudent => {
+                    if (!students.find(s => s.id === cloudStudent.id)) {
+                        students.push({ ...cloudStudent });
+                        pulledStudents++;
+                    }
+                });
+                existingRecords.forEach(cloudRecord => {
+                    if (!attendanceRecords.find(r => r.id === cloudRecord.id)) {
+                        attendanceRecords.push({ ...cloudRecord });
+                        pulledRecords++;
+                    }
+                });
+                existingSkills.forEach(cloudSkill => {
+                    if (!skills.find(s => s.id === cloudSkill.id || s.name === cloudSkill.name)) {
+                        skills.push({ ...cloudSkill });
+                        pulledSkills++;
+                    }
+                });
+
+                updateMergeProgress('Saving locally...', 60);
+
+                if (pulledUsers > 0 || pulledStudents > 0 || pulledRecords > 0 || pulledSkills > 0) {
+                    saveUsers();
+                    saveStudents();
+                    saveAttendanceRecords();
+                    saveSkills();
+                }
+
+                updateMergeProgress('Uploading to cloud...', 75);
+
+                // Save merged data to cloud
+                const backupData = {
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    savedBy: currentUser ? currentUser.username : 'Unknown',
+                    mergedBy: currentUser ? currentUser.username : 'Unknown',
+                    data: {
+                        users: mergedUsers,
+                        students: mergedStudents,
+                        attendanceRecords: mergedRecords,
+                        skills: mergedSkills
+                    }
+                };
+
+                const jsonContent = JSON.stringify(backupData, null, 2);
+                const blob = new Blob([jsonContent], { type: 'application/json' });
+
+                let response;
+
+                if (cloudFileId) {
+                    response = await fetch(
+                        `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=media`,
+                        {
+                            method: 'PATCH',
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: blob
+                        }
+                    );
+                } else {
+                    const metadata = {
+                        name: GOOGLE_DRIVE_CONFIG.BACKUP_FILE_NAME,
+                        parents: [GOOGLE_DRIVE_CONFIG.FOLDER_ID],
+                        mimeType: 'application/json'
+                    };
+
+                    const formData = new FormData();
+                    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                    formData.append('file', blob);
+
+                    response = await fetch(
+                        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${googleAccessToken}`
+                            },
+                            body: formData
+                        }
+                    );
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        cloudFileId = result.id;
+                        localStorage.setItem('cestisCloudFileId', cloudFileId);
+                    }
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'Merge failed');
+                }
+
+                updateMergeProgress('Finalizing...', 90);
+
+                // Update sync tracking
+                lastSyncTime = new Date();
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+                updateLastSyncDisplay();
+
+                lastSavedBy = currentUser ? currentUser.username : 'Unknown';
+                cloudFileTimestamp = new Date().toISOString();
+                updateLastSavedByDisplay();
+
+                // Update UI
+                if (typeof renderUsersTable === 'function') renderUsersTable();
+                if (typeof renderStudentsTable === 'function') renderStudentsTable();
+                if (typeof renderTodayAttendance === 'function') renderTodayAttendance();
+
+                updateMergeProgress('Merge complete!', 100);
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                setCloudSyncing(false);
+                hideMergeProgress();
+
+                // Show simple notification for staff (not the full modal)
+                const uploadedCount = addedUsers + addedStudents + addedRecords + addedSkills;
+                const downloadedCount = pulledUsers + pulledStudents + pulledRecords + pulledSkills;
+                showStaffMergeNotification(uploadedCount, downloadedCount);
+
+            } catch (error) {
+                console.error('Error in staff merge:', error);
+                setCloudSyncing(false);
+                hideMergeProgress();
+
+                if (error.message.includes('invalid_token') || error.message.includes('Invalid Credentials')) {
+                    alert('Your session has expired. Please reconnect to Google Drive.');
+                    disconnectFromGoogleDrive();
+                } else {
+                    alert(`Merge failed: ${error.message}`);
                 }
             }
         }
+
+        // Show simple notification for staff users
+        function showStaffMergeNotification(uploadedCount, downloadedCount) {
+            const modalHTML = `
+                <div id="staffMergeNotificationModal" class="modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center;">
+                    <div style="background: var(--bg-secondary); padding: 2rem; border-radius: 24px; max-width: 400px; width: 90%; box-shadow: var(--shadow-xl); animation: slideUp 0.3s ease; text-align: center;">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
+                        <h2 style="background: linear-gradient(135deg, #9C27B0, #E91E63); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 1rem;">Data Merged!</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                            Your data has been synchronized with the cloud.
+                        </p>
+                        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; text-align: left;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <span>Uploaded to cloud:</span>
+                                <strong style="color: #4CAF50;">${uploadedCount} record(s)</strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Downloaded from cloud:</span>
+                                <strong style="color: #2196F3;">${downloadedCount} record(s)</strong>
+                            </div>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+                            Merged by: ${currentUser ? currentUser.username : 'Unknown'}<br>
+                            Time: ${new Date().toLocaleString()}
+                        </p>
+                        <button class="btn btn-primary" onclick="closeStaffMergeNotification()" style="width: 100%; padding: 0.75rem;">
+                            OK
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        function closeStaffMergeNotification() {
+            const modal = document.getElementById('staffMergeNotificationModal');
+            if (modal) modal.remove();
+        }
+
+        // Show merge success modal for admin
+        function showMergeSuccessModal(analysis) {
+            // Safe access to analysis properties with defaults
+            const usersNewLocal = (analysis && analysis.users && Array.isArray(analysis.users.newLocal)) ? analysis.users.newLocal.length : 0;
+            const usersNewCloud = (analysis && analysis.users && Array.isArray(analysis.users.newCloud)) ? analysis.users.newCloud.length : 0;
+            const usersConflicts = (analysis && analysis.users && Array.isArray(analysis.users.conflicts)) ? analysis.users.conflicts.length : 0;
+            const studentsNewLocal = (analysis && analysis.students && Array.isArray(analysis.students.newLocal)) ? analysis.students.newLocal.length : 0;
+            const studentsNewCloud = (analysis && analysis.students && Array.isArray(analysis.students.newCloud)) ? analysis.students.newCloud.length : 0;
+            const studentsConflicts = (analysis && analysis.students && Array.isArray(analysis.students.conflicts)) ? analysis.students.conflicts.length : 0;
+            const recordsNewLocal = (analysis && analysis.attendanceRecords && Array.isArray(analysis.attendanceRecords.newLocal)) ? analysis.attendanceRecords.newLocal.length : 0;
+            const recordsNewCloud = (analysis && analysis.attendanceRecords && Array.isArray(analysis.attendanceRecords.newCloud)) ? analysis.attendanceRecords.newCloud.length : 0;
+            const recordsConflicts = (analysis && analysis.attendanceRecords && Array.isArray(analysis.attendanceRecords.conflicts)) ? analysis.attendanceRecords.conflicts.length : 0;
+
+            const localToCloud = usersNewLocal + studentsNewLocal + recordsNewLocal;
+            const cloudToLocal = usersNewCloud + studentsNewCloud + recordsNewCloud;
+            const conflictsResolved = usersConflicts + studentsConflicts + recordsConflicts;
+
+            const modalHTML = `
+                <div id="mergeSuccessModal" class="modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center;">
+                    <div style="background: var(--bg-secondary); padding: 2rem; border-radius: 24px; max-width: 450px; width: 90%; box-shadow: var(--shadow-xl); animation: slideUp 0.3s ease;">
+                        <div style="background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%); margin: -2rem -2rem 1.5rem -2rem; padding: 1.5rem 2rem; border-radius: 24px 24px 0 0; text-align: center;">
+                            <div style="font-size: 3rem; margin-bottom: 0.5rem;">✅</div>
+                            <h2 style="color: white; margin: 0;">Merge Complete!</h2>
+                        </div>
+
+                        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; text-align: center;">
+                                <div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #4CAF50;">${localToCloud}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Local → Cloud</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #2196F3;">${cloudToLocal}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Cloud → Local</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #FF9800;">${conflictsResolved}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Conflicts Resolved</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #9C27B0;">${users.length + students.length + attendanceRecords.length}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Total Records</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-bottom: 1.5rem;">
+                            Merged by: ${currentUser ? currentUser.username : 'Unknown'}<br>
+                            Time: ${new Date().toLocaleString()}
+                        </p>
+
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <button class="btn btn-success" onclick="browseBackupFiles(); closeMergeSuccessModal();" style="width: 100%;">
+                                📁 Browse All Backups
+                            </button>
+                            <button class="btn btn-secondary" onclick="closeMergeSuccessModal()" style="width: 100%;">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        function closeMergeSuccessModal() {
+            const modal = document.getElementById('mergeSuccessModal');
+            if (modal) modal.remove();
+        }
+
+        // Close smart merge modal
+        function closeSmartMergeModal() {
+            document.getElementById('smartMergeModal').style.display = 'none';
+            cloudDataForMerge = null;
+            mergeAnalysis = null;
+        }
+
+        // ==================== END SMART MERGE TO CLOUD ====================
 
         // Sync (download) data from Google Drive
         async function syncFromCloud() {
@@ -7594,5 +8565,71 @@
             }
         });
     </script>
+
+    <!-- Smart Merge Cloud Sync Modal (Admin Only) -->
+    <div id="smartMergeModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center;">
+        <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg-secondary); border-radius: 24px; box-shadow: var(--shadow-xl); animation: slideUp 0.3s ease;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="color: white; margin: 0; font-weight: 700;">🔀 Smart Merge to Cloud</h2>
+                <button class="close-btn" onclick="closeSmartMergeModal()" style="color: white; background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div style="padding: 1.5rem; overflow-y: auto; flex: 1;">
+                <div id="smartMergeLoading" style="text-align: center; padding: 2rem;">
+                    <div style="font-size: 2rem; margin-bottom: 1rem;">🔄</div>
+                    <p>Analyzing cloud data and detecting changes...</p>
+                </div>
+                <div id="smartMergeContent" style="display: none;">
+                    <!-- Summary Section -->
+                    <div id="mergeSummary" style="background: var(--bg-tertiary); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;"></div>
+
+                    <!-- Conflicts Section -->
+                    <div id="cloudConflictsSection" style="display: none; margin-bottom: 1.5rem;">
+                        <h3 style="color: #E91E63; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span>⚠️</span> Potential Conflicts Detected
+                        </h3>
+                        <div id="cloudConflictsList"></div>
+                    </div>
+
+                    <!-- New Records Section -->
+                    <div id="newRecordsSection" style="display: none; margin-bottom: 1.5rem;">
+                        <h3 style="color: #4CAF50; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span>➕</span> New Records to Merge
+                        </h3>
+                        <div id="newRecordsList"></div>
+                    </div>
+
+                    <!-- Merge Options -->
+                    <div style="background: #E3F2FD; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                        <h4 style="color: #1565C0; margin-bottom: 0.75rem;">Merge Options</h4>
+                        <div class="form-group" style="margin-bottom: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="mergeSkipDuplicates" checked style="width: 18px; height: 18px;">
+                                <span>Skip records that appear to be duplicates</span>
+                            </label>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0.5rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="mergeUpdateExisting" style="width: 18px; height: 18px;">
+                                <span>Update existing records with newer data (if timestamps available)</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="mergeAddNewOnly" checked style="width: 18px; height: 18px;">
+                                <span>Add new unique records from local data</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-group" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                    <button class="btn" id="executeMergeBtn" onclick="executeSmartMerge()" style="background: linear-gradient(135deg, #9C27B0 0%, #E91E63 100%); color: white; flex: 1; padding: 0.75rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600;" disabled>
+                        Execute Smart Merge
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeSmartMergeModal()" style="flex: 1; padding: 0.75rem; border-radius: 0.5rem;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
