@@ -8058,25 +8058,36 @@
                 if (!response.ok) throw new Error('Failed to download backup');
                 const backup = await response.json();
                 if (!backup.version || !backup.data) throw new Error('Invalid backup format');
+
+                // Restore users data
                 if (backup.data.users) {
                     users = backup.data.users;
-                    localStorage.setItem('dashboardUsers', JSON.stringify(users));
+                    saveUsers();
                 }
-                if (backup.data.quickLinks) {
-                    quickLinks = backup.data.quickLinks;
-                    localStorage.setItem('quickLinks', JSON.stringify(quickLinks));
+
+                // Restore students data
+                if (backup.data.students) {
+                    students = backup.data.students;
+                    saveStudents();
                 }
-                if (backup.data.mainLinks) {
-                    mainLinks = backup.data.mainLinks;
-                    localStorage.setItem('mainLinks', JSON.stringify(mainLinks));
+
+                // Restore attendance records
+                if (backup.data.attendanceRecords) {
+                    attendanceRecords = backup.data.attendanceRecords;
+                    saveAttendanceRecords();
                 }
-                if (backup.data.schoolSettings) {
-                    schoolSettings = backup.data.schoolSettings;
-                    localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings));
+
+                // Restore skills data
+                if (backup.data.skills) {
+                    skills = backup.data.skills;
+                    saveSkills();
                 }
+
+                // Update sync tracking
                 lastSyncTime = new Date();
                 lastSavedBy = backup.savedBy || 'Unknown';
-                localStorage.setItem('schoolDashboardLastSyncTime', lastSyncTime.toISOString());
+                localStorage.setItem('cestisLastSyncTime', lastSyncTime.toISOString());
+
                 return true;
             } catch (error) {
                 console.error('Perform login page sync error:', error);
