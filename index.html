@@ -2175,26 +2175,26 @@
             color: var(--accent-dark);
         }
         /* Cloud Sync Notification Popup */
-        .cloud-notify{position:fixed;top:1.25rem;right:1.25rem;z-index:9999;width:370px;max-width:calc(100vw - 2rem);background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);transform:translateX(120%);transition:transform .4s cubic-bezier(.22,1,.36,1);overflow:hidden}
+        .cloud-notify{position:fixed;top:1.25rem;right:1.25rem;z-index:9999;width:370px;max-width:calc(100vw - 2rem);background:var(--bg-secondary);border:1px solid var(--border-light);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);transform:translateX(120%);transition:transform .4s cubic-bezier(.22,1,.36,1);overflow:hidden}
         .cloud-notify.show{transform:translateX(0)}
-        .cloud-notify.warn{border-color:var(--gold)}
+        .cloud-notify.warn{border-color:var(--warning)}
         .cloud-notify.error{border-color:var(--danger)}
         .cloud-notify-bar{height:4px;width:100%}
-        .cloud-notify.warn .cloud-notify-bar{background:var(--gold)}
+        .cloud-notify.warn .cloud-notify-bar{background:var(--warning)}
         .cloud-notify.error .cloud-notify-bar{background:var(--danger)}
         .cloud-notify-body{padding:1rem 1.25rem;display:flex;gap:.75rem;align-items:flex-start}
         .cloud-notify-icon{font-size:1.6rem;flex-shrink:0;line-height:1}
         .cloud-notify-content{flex:1;min-width:0}
         .cloud-notify-title{font-size:.9rem;font-weight:700;margin-bottom:.3rem}
-        .cloud-notify.warn .cloud-notify-title{color:var(--gold)}
+        .cloud-notify.warn .cloud-notify-title{color:var(--warning)}
         .cloud-notify.error .cloud-notify-title{color:var(--danger)}
-        .cloud-notify-msg{font-size:.8rem;color:var(--text-dim);line-height:1.45}
-        .cloud-notify-close{background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;padding:0;line-height:1;flex-shrink:0}
-        .cloud-notify-close:hover{color:var(--text)}
+        .cloud-notify-msg{font-size:.8rem;color:var(--text-secondary);line-height:1.45}
+        .cloud-notify-close{background:none;border:none;color:var(--text-tertiary);font-size:1.2rem;cursor:pointer;padding:0;line-height:1;flex-shrink:0}
+        .cloud-notify-close:hover{color:var(--text-primary)}
         .cloud-notify-actions{padding:0 1.25rem 1rem;display:flex;gap:.5rem}
         .cloud-notify-actions .btn{font-size:.8rem;padding:.45rem .9rem}
         @keyframes notifyCountdown{from{width:100%}to{width:0%}}
-        .cloud-notify-timer{height:3px;background:var(--text-muted);opacity:.3;border-radius:0 0 14px 14px}
+        .cloud-notify-timer{height:3px;background:var(--text-tertiary);opacity:.3;border-radius:0 0 14px 14px}
     </style>
 </head>
 <body>
